@@ -1,0 +1,44 @@
+{
+    "name": "linkedin-mcp",
+    "version": "1.0.0",
+    "description": "LinkedIn MCP implementation",
+    "type": "module",
+    "bin": {
+        "linkedin-mcp": "dist/server.js"
+    },
+    "scripts": {
+        "build": "rollup -c",
+        "start": "node --loader ts-node/esm server.ts",
+        "start:prod": "node dist/server.js",
+        "prepublishOnly": "pnpm build"
+    },
+    "keywords": [
+        "linkedin",
+        "mcp",
+        "model-context-protocol"
+    ],
+    "author": "Salim Laimeche",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": ""
+    },
+    "files": [
+        "dist",
+        "README.md"
+    ],
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.12.1",
+        "zod": "^3.25.42"
+    },
+    "devDependencies": {
+        "@rollup/plugin-commonjs": "^28.0.3",
+        "@rollup/plugin-node-resolve": "^16.0.1",
+        "@rollup/plugin-typescript": "^12.1.2",
+        "rollup": "^4.42.0",
+        "rollup-plugin-preserve-shebang": "^1.0.1",
+        "ts-node": "^10.9.1",
+        "tslib": "^2.8.1",
+        "typescript": "^5.0.0"
+    }
+}
