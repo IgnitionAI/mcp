@@ -1,6 +1,3 @@
-import { URL } from 'url';
-
-
 type LinkedInOptions = {
   timeout?: number;
   mobileToken?: boolean;

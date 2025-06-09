@@ -13,10 +13,8 @@ import {
   createPost, 
   PostVisibility,
 } from "./tools/posts.js";
-import dotenv from "dotenv";
 import { getPersonUrn, diagnosticUserInfo } from "./tools/linkedinAdapter.js";
-
-dotenv.config();
+import { LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI } from "./resources/constant.js";
 
 const server = new McpServer({
   name: "LinkedInMCP",
@@ -24,12 +22,11 @@ const server = new McpServer({
   description: "Serveur MCP pour interagir avec LinkedIn"
 });
 
-const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID; 
 
 server.tool('linkedin_login',
   async () => {
     try {
-      const result = await loginLinkedIn(LINKEDIN_CLIENT_ID, "https://www.linkedin.com/developers/tools/oauth/redirect");
+      const result = await loginLinkedIn(LINKEDIN_CLIENT_ID, LINKEDIN_REDIRECT_URI);
       
       const authState = result.state;
       

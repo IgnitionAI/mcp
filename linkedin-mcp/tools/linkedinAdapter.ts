@@ -1,8 +1,6 @@
 import createLinkedIn, { LinkedIn, LinkedInClient } from '../lib/linkedin.js';
-import dotenv from 'dotenv';
 import { getAccessToken as getAuthToken } from './auth.js';
-
-dotenv.config();
+import { LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI } from '../resources/constant.js';
 
 let linkedinInstance: LinkedIn | null = null;
 let linkedinClient: LinkedInClient | null = null;
@@ -69,9 +67,9 @@ export async function getPersonUrn(): Promise<string | null> {
 
 export function getLinkedInInstance(): LinkedIn {
   if (!linkedinInstance) {
-    const clientId = process.env.LINKEDIN_CLIENT_ID;
-    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
+    const clientId = LINKEDIN_CLIENT_ID;
+    const clientSecret = LINKEDIN_CLIENT_SECRET;
+    const redirectUri = LINKEDIN_REDIRECT_URI;
     
     if (!clientId || !clientSecret) {
       throw new Error('Configuration LinkedIn manquante dans les variables d\'environnement');
@@ -84,7 +82,7 @@ export function getLinkedInInstance(): LinkedIn {
 }
 
 
-export async function loginLinkedIn(redirectUri: string = process.env.LINKEDIN_REDIRECT_URI) {
+export async function loginLinkedIn(redirectUri: string = LINKEDIN_REDIRECT_URI) {
   try {
     const linkedin = getLinkedInInstance();
     
