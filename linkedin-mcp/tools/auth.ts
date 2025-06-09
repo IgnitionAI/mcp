@@ -1,4 +1,3 @@
-import { LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI } from '../resources/constant.js';
 import { resetPersonUrnCache } from './linkedinAdapter.js';
 
 type LinkedInTokens = {
@@ -8,7 +7,6 @@ type LinkedInTokens = {
 };
 
 let tokens: LinkedInTokens | null = null;
-
 
 export async function loginLinkedIn(clientId: string, redirectUri: string = LINKEDIN_REDIRECT_URI) {
   const state = Math.random().toString(36).substring(2, 15);
@@ -26,22 +24,19 @@ export async function loginLinkedIn(clientId: string, redirectUri: string = LINK
   };
 }
 
-
 export async function handleLinkedInCallback(code: string, state?: string) {
-  try {
-    
-    
-    const clientId = LINKEDIN_CLIENT_ID;
-    const clientSecret = LINKEDIN_CLIENT_SECRET;
-    const redirectUri = LINKEDIN_REDIRECT_URI;
-    
+  try { 
+    const clientId = process.env.LINKEDIN_CLIENT_ID!;
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!;
+    const redirectUri = process.env.LINKEDIN_REDIRECT_URI!;
+
     if (!clientId || !clientSecret || !redirectUri) {
       throw new Error('Configuration LinkedIn manquante dans les variables d\'environnement');
     }
-    
+
     console.log(`Échange du code d'autorisation contre un token d'accès...`);
     console.log(`URI de redirection utilisée: ${redirectUri}`);
-    
+
     const tokenUrl = 'https://www.linkedin.com/oauth/v2/accessToken';
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
@@ -49,7 +44,7 @@ export async function handleLinkedInCallback(code: string, state?: string) {
     params.append('redirect_uri', redirectUri);
     params.append('client_id', clientId);
     params.append('client_secret', clientSecret);
-    
+
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {

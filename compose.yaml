@@ -1,0 +1,7 @@
+services:
+  linkedin-mcp-http:
+    build: 
+      context: ./linkedin-mcp-http/
+      dockerfile: Dockerfile
+    env_file:
+      - .env
