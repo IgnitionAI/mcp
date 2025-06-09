@@ -1,6 +1,9 @@
 import createLinkedIn, { LinkedIn, LinkedInClient } from '../lib/linkedin.js';
 import { getAccessToken as getAuthToken } from './auth.js';
-import { LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI } from '../resources/constant.js';
+
+const clientId = process.env.LINKEDIN_CLIENT_ID!;
+const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!;
+const redirectUri = process.env.LINKEDIN_REDIRECT_URI!;
 
 let linkedinInstance: LinkedIn | null = null;
 let linkedinClient: LinkedInClient | null = null;
@@ -17,17 +20,17 @@ export async function getPersonUrn(): Promise<string | null> {
     console.log('URN trouvé dans le cache:', personUrnCache);
     return personUrnCache;
   }
-  
+
   console.log('URN non trouvé dans le cache, vérification du token d\'accès');
-  
+
   const accessToken = getAccessToken();
   if (!accessToken) {
     console.error('Token d\'accès non disponible. Veuillez vous authentifier d\'abord.');
     return null;
   }
-  
+
   console.log('Token d\'accès disponible, appel à l\'API LinkedIn');
-  
+
   try {
     console.log('Appel à l\'endpoint OpenID Connect /v2/userinfo...');
     const response = await fetch('https://api.linkedin.com/v2/userinfo', {
@@ -37,18 +40,17 @@ export async function getPersonUrn(): Promise<string | null> {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       const responseText = await response.text();
       console.error(`LinkedIn API error response (/v2/userinfo): ${response.status}\n${responseText}`);
       throw new Error(`LinkedIn API error: ${response.status} - ${responseText.substring(0, 100)}...`);
     }
-    
+
     const profile = await response.json();
     console.log('Profil récupéré via /v2/userinfo:', JSON.stringify(profile, null, 2));
-    
-    if (profile && profile.sub) {
 
+    if (profile && profile.sub) {
       personUrnCache = `urn:li:person:${profile.sub}`;
       console.log('ID utilisateur (sub) extrait:', profile.sub);
       console.log('URN LinkedIn construit et mis en cache:', personUrnCache);
@@ -64,35 +66,27 @@ export async function getPersonUrn(): Promise<string | null> {
   }
 }
 
-
 export function getLinkedInInstance(): LinkedIn {
-  if (!linkedinInstance) {
-    const clientId = LINKEDIN_CLIENT_ID;
-    const clientSecret = LINKEDIN_CLIENT_SECRET;
-    const redirectUri = LINKEDIN_REDIRECT_URI;
-    
+  if (!linkedinInstance) {    
     if (!clientId || !clientSecret) {
       throw new Error('Configuration LinkedIn manquante dans les variables d\'environnement');
     }
-    
+
     linkedinInstance = createLinkedIn(clientId, clientSecret, redirectUri);
   }
-  
+
   return linkedinInstance;
 }
 
-
-export async function loginLinkedIn(redirectUri: string = LINKEDIN_REDIRECT_URI) {
+export async function loginLinkedIn(redirectUri: string = redirectUri) {
   try {
     const linkedin = getLinkedInInstance();
-    
+
     if (redirectUri) {
       linkedin.auth.setCallback(redirectUri);
     }
     const scope = ['openid', 'profile', 'email', 'w_member_social'];
-    
     const state = Math.random().toString(36).substring(2, 15);
-    
     const authUrl = linkedin.auth.authorize(null, scope, state);
     
     return {
@@ -107,7 +101,7 @@ export async function loginLinkedIn(redirectUri: string = LINKEDIN_REDIRECT_URI)
 
 export async function handleLinkedInCallback(code: string, state?: string) {
   console.log('Début du traitement du callback LinkedIn avec code:', code ? 'Code présent' : 'Code absent');
-  
+
   return new Promise<any>((resolve, reject) => {
     try {
       const linkedin = getLinkedInInstance();
@@ -128,14 +122,14 @@ export async function handleLinkedInCallback(code: string, state?: string) {
             token_présent: !!data.access_token,
             token_length: data.access_token ? data.access_token.length : 0
           });
-          
+
           try {
             linkedinClient = LinkedIn.init(data.access_token, {
               timeout: 30000
             });
-            
+
             personUrnCache = null;
-            
+
             console.log('Client LinkedIn initialisé avec succès');
             resolve({
               success: true,
@@ -163,19 +157,17 @@ export async function handleLinkedInCallback(code: string, state?: string) {
   });
 }
 
-
 export async function checkLinkedInAuth() {
   const isAuthenticated = linkedinClient !== null;
-  
+
   return {
     isAuthenticated,
   };
 }
 
-
 export async function logoutLinkedIn() {
   linkedinClient = null;
-  
+
   return {
     success: true,
     message: 'Déconnexion réussie',
@@ -188,22 +180,20 @@ export function getLinkedInClient(): LinkedInClient | null {
 
 export function getAccessToken(): string | null {
   console.log('linkedinAdapter.getAccessToken appelé - utilisation du token de auth.ts');
-  
-
   const token = getAuthToken();
-  
+
   if (!token) {
     console.error('getAccessToken: Aucun token disponible dans auth.ts');
     return null;
   }
-  
+
   console.log('getAccessToken: Token récupéré avec succès depuis auth.ts');
   return token;
 }
 
 export async function diagnosticUserInfo() {
   console.log('Début du diagnostic utilisateur...');
-  
+
   const accessToken = getAccessToken();
   if (!accessToken) {
     return {
@@ -211,16 +201,15 @@ export async function diagnosticUserInfo() {
       message: 'Non authentifié. Veuillez vous connecter d\'abord.',
     };
   }
-  
+
   try {
     const endpoints = [
       { url: 'https://api.linkedin.com/v2/me', name: '/v2/me' },
       { url: 'https://api.linkedin.com/v2/userinfo', name: '/v2/userinfo' },
       { url: 'https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', name: '/v2/emailAddress' },
     ];
-    
     const results = {};
-    
+
     for (const endpoint of endpoints) {
       try {
         console.log(`Tentative avec l'endpoint ${endpoint.name}...`);
@@ -232,7 +221,7 @@ export async function diagnosticUserInfo() {
             'Content-Type': 'application/json',
           },
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log(`Réponse de ${endpoint.name}:`, JSON.stringify(data, null, 2));
@@ -247,7 +236,7 @@ export async function diagnosticUserInfo() {
         results[endpoint.name] = { error: 'Exception', message: String(error) };
       }
     }
-    
+
     return {
       success: true,
       message: 'Diagnostic terminé',
