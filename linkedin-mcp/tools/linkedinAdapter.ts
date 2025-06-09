@@ -4,27 +4,16 @@ import { getAccessToken as getAuthToken } from './auth.js';
 
 dotenv.config();
 
-// Singleton pour l'instance LinkedIn
 let linkedinInstance: LinkedIn | null = null;
 let linkedinClient: LinkedInClient | null = null;
 
-// Cache pour l'URN de la personne
 let personUrnCache: string | null = null;
 
-/**
- * Réinitialise le cache de l'URN de la personne
- * Utile après une nouvelle authentification pour forcer une nouvelle récupération
- */
 export function resetPersonUrnCache(): void {
   console.log('Réinitialisation du cache de l\'URN de la personne');
   personUrnCache = null;
 }
 
-/**
- * Récupère l'URN LinkedIn de la personne connectée
- * Met en cache l'URN pour éviter les appels répétitifs
- * Utilise le sub d'OpenID Connect pour construire l'URN
- */
 export async function getPersonUrn(): Promise<string | null> {
   if (personUrnCache) {
     console.log('URN trouvé dans le cache:', personUrnCache);
@@ -33,7 +22,6 @@ export async function getPersonUrn(): Promise<string | null> {
   
   console.log('URN non trouvé dans le cache, vérification du token d\'accès');
   
-  // Récupérer le token d'accès
   const accessToken = getAccessToken();
   if (!accessToken) {
     console.error('Token d\'accès non disponible. Veuillez vous authentifier d\'abord.');
@@ -43,7 +31,6 @@ export async function getPersonUrn(): Promise<string | null> {
   console.log('Token d\'accès disponible, appel à l\'API LinkedIn');
   
   try {
-    // Utiliser l'endpoint OpenID Connect /v2/userinfo pour récupérer le sub
     console.log('Appel à l\'endpoint OpenID Connect /v2/userinfo...');
     const response = await fetch('https://api.linkedin.com/v2/userinfo', {
       method: 'GET',
@@ -62,9 +49,8 @@ export async function getPersonUrn(): Promise<string | null> {
     const profile = await response.json();
     console.log('Profil récupéré via /v2/userinfo:', JSON.stringify(profile, null, 2));
     
-    // Extraire le sub et construire l'URN
     if (profile && profile.sub) {
-      // Construire l'URN au format urn:li:person:{sub}
+
       personUrnCache = `urn:li:person:${profile.sub}`;
       console.log('ID utilisateur (sub) extrait:', profile.sub);
       console.log('URN LinkedIn construit et mis en cache:', personUrnCache);
@@ -80,9 +66,7 @@ export async function getPersonUrn(): Promise<string | null> {
   }
 }
 
-/**
- * Obtient ou crée l'instance LinkedIn
- */
+
 export function getLinkedInInstance(): LinkedIn {
   if (!linkedinInstance) {
     const clientId = process.env.LINKEDIN_CLIENT_ID;
@@ -99,25 +83,18 @@ export function getLinkedInInstance(): LinkedIn {
   return linkedinInstance;
 }
 
-/**
- * Initialise le processus d'authentification avec LinkedIn
- */
+
 export async function loginLinkedIn(redirectUri: string = process.env.LINKEDIN_REDIRECT_URI) {
   try {
     const linkedin = getLinkedInInstance();
     
-    // Définir l'URL de callback si elle est fournie
     if (redirectUri) {
       linkedin.auth.setCallback(redirectUri);
     }
-    
-    // Définir les scopes LinkedIn - inclure OpenID Connect et w_member_social
     const scope = ['openid', 'profile', 'email', 'w_member_social'];
     
-    // Générer un état aléatoire pour la sécurité
     const state = Math.random().toString(36).substring(2, 15);
     
-    // Obtenir l'URL d'autorisation
     const authUrl = linkedin.auth.authorize(null, scope, state);
     
     return {
@@ -130,9 +107,6 @@ export async function loginLinkedIn(redirectUri: string = process.env.LINKEDIN_R
   }
 }
 
-/**
- * Traite le callback d'authentification LinkedIn et obtient les tokens
- */
 export async function handleLinkedInCallback(code: string, state?: string) {
   console.log('Début du traitement du callback LinkedIn avec code:', code ? 'Code présent' : 'Code absent');
   
@@ -157,13 +131,11 @@ export async function handleLinkedInCallback(code: string, state?: string) {
             token_length: data.access_token ? data.access_token.length : 0
           });
           
-          // Initialiser le client avec le token d'accès
           try {
             linkedinClient = LinkedIn.init(data.access_token, {
-              timeout: 30000 // 30 secondes
+              timeout: 30000
             });
             
-            // Réinitialiser le cache de l'URN pour forcer une nouvelle récupération
             personUrnCache = null;
             
             console.log('Client LinkedIn initialisé avec succès');
@@ -194,10 +166,6 @@ export async function handleLinkedInCallback(code: string, state?: string) {
 }
 
 
-
-/**
- * Vérifie si l'utilisateur est authentifié avec LinkedIn
- */
 export async function checkLinkedInAuth() {
   const isAuthenticated = linkedinClient !== null;
   
@@ -206,9 +174,7 @@ export async function checkLinkedInAuth() {
   };
 }
 
-/**
- * Déconnecte l'utilisateur de LinkedIn
- */
+
 export async function logoutLinkedIn() {
   linkedinClient = null;
   
@@ -218,20 +184,14 @@ export async function logoutLinkedIn() {
   };
 }
 
-/**
- * Fonction utilitaire pour obtenir le client LinkedIn (à utiliser dans d'autres modules)
- */
 export function getLinkedInClient(): LinkedInClient | null {
   return linkedinClient;
 }
 
-/**
- * Fonction utilitaire pour obtenir le token d'accès (pour compatibilité avec l'ancienne API)
- */
 export function getAccessToken(): string | null {
   console.log('linkedinAdapter.getAccessToken appelé - utilisation du token de auth.ts');
   
-  // Utiliser la fonction getAccessToken de auth.ts
+
   const token = getAuthToken();
   
   if (!token) {
@@ -243,9 +203,6 @@ export function getAccessToken(): string | null {
   return token;
 }
 
-/**
- * Fonction de diagnostic pour afficher toutes les informations disponibles sur l'utilisateur
- */
 export async function diagnosticUserInfo() {
   console.log('Début du diagnostic utilisateur...');
   
@@ -258,7 +215,6 @@ export async function diagnosticUserInfo() {
   }
   
   try {
-    // Essayer plusieurs endpoints pour voir ce qui fonctionne
     const endpoints = [
       { url: 'https://api.linkedin.com/v2/me', name: '/v2/me' },
       { url: 'https://api.linkedin.com/v2/userinfo', name: '/v2/userinfo' },

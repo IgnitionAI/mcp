@@ -18,6 +18,7 @@ export default {
   external: [
     "@modelcontextprotocol/sdk",
     "zod",
-    "dotenv"
+    "dotenv",
+    "node-linkedin"
   ]
 };

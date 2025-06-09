@@ -1,13 +1,9 @@
 import { getAccessToken } from './auth.js';
 
-/**
- * Type pour la direction des invitations
- */
+
 export type InvitationDirection = 'SENT' | 'RECEIVED' | 'BOTH';
 
-/**
- * Récupère la liste des connexions LinkedIn de l'utilisateur
- */
+
 export async function getConnections(start: number = 0, count: number = 20) {
   const accessToken = getAccessToken();
   
@@ -19,10 +15,7 @@ export async function getConnections(start: number = 0, count: number = 20) {
   }
   
   try {
-    // LinkedIn n'offre plus d'API directe pour les connexions, nous devons utiliser l'API de recherche
-    // Voir: https://learn.microsoft.com/en-us/linkedin/shared/integrations/people/primary-contact-api
-    
-    // Construire l'URL de l'API avec pagination
+
     const apiUrl = new URL('https://api.linkedin.com/v2/connections');
     apiUrl.searchParams.append('start', start.toString());
     apiUrl.searchParams.append('count', count.toString());
@@ -60,7 +53,7 @@ export async function getConnections(start: number = 0, count: number = 20) {
       
       const contactsData = await contactsResponse.json();
       
-      // Transformer les données de l'API en format cohérent
+
       const connections = contactsData.elements.map((contact: any) => ({
         id: contact.miniProfile.entityUrn,
         firstName: contact.miniProfile.firstName,
@@ -81,7 +74,7 @@ export async function getConnections(start: number = 0, count: number = 20) {
     
     const data = await response.json();
     
-    // Transformer les données de l'API en format cohérent
+
     const connections = data.elements.map((connection: any) => ({
       id: connection.miniProfile.entityUrn,
       firstName: connection.miniProfile.firstName.localized[Object.keys(connection.miniProfile.firstName.localized)[0]],
@@ -108,9 +101,7 @@ export async function getConnections(start: number = 0, count: number = 20) {
   }
 }
 
-/**
- * Recherche des personnes sur LinkedIn
- */
+
 export async function searchPeople(options: {
   keywords: string;
   firstName?: string;
@@ -130,26 +121,54 @@ export async function searchPeople(options: {
   }
   
   try {
-    // Dans une implémentation réelle, vous feriez une requête GET à l'API LinkedIn
-    // GET https://api.linkedin.com/v2/search
+
+    const searchUrl = new URL('https://api.linkedin.com/v2/people-search');
+    searchUrl.searchParams.append('keywords', keywords);
+    searchUrl.searchParams.append('count', count.toString());
     
-    // Simuler des résultats de recherche
-    const results = Array.from({ length: count }, (_, i) => ({
-      id: `urn:li:person:${200000 + i}`,
-      firstName: firstName || `Prénom${i + 1}`,
-      lastName: lastName || `Nom${i + 1}`,
-      headline: title || `${title || 'Professionnel'} chez ${company || 'Entreprise'}`,
-      industry: 'Technologie',
-      location: 'Paris, France',
-      connectionDegree: Math.min(i % 3 + 1, 3), // 1er, 2e ou 3e degré
-      sharedConnections: i % 10,
-    }));
+
+    if (firstName) searchUrl.searchParams.append('firstName', firstName);
+    if (lastName) searchUrl.searchParams.append('lastName', lastName);
+    if (company) searchUrl.searchParams.append('company', company);
+    if (title) searchUrl.searchParams.append('title', title);
+    
+    console.log(`Recherche LinkedIn avec URL: ${searchUrl.toString()}`);
+    
+    const response = await fetch(searchUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
+      throw new Error(`LinkedIn API error: ${response.status} - ${responseText.substring(0, 100)}...`);
+    }
+    
+    const data = await response.json();
+    console.log('Réponse de recherche LinkedIn:', JSON.stringify(data, null, 2));
+    
+    const results = data.elements?.map((person: any) => ({
+      id: person.entityUrn || person.id,
+      firstName: person.firstName?.localized?.[Object.keys(person.firstName?.localized || {})[0]] || person.firstName,
+      lastName: person.lastName?.localized?.[Object.keys(person.lastName?.localized || {})[0]] || person.lastName,
+      headline: person.headline?.localized?.[Object.keys(person.headline?.localized || {})[0]] || person.headline,
+      industry: person.industry,
+      location: person.location?.preferredGeoPlace?.label?.localized?.[Object.keys(person.location?.preferredGeoPlace?.label?.localized || {})[0]] || null,
+      connectionDegree: person.connectionDegree || null,
+      sharedConnections: person.sharedConnectionsCount || 0,
+    })) || [];
     
     return {
       success: true,
       results,
       keywords,
       count: results.length,
+      total: data.paging?.total || results.length,
       filters: {
         firstName,
         lastName,
@@ -167,9 +186,7 @@ export async function searchPeople(options: {
   }
 }
 
-/**
- * Envoie une invitation de connexion à une personne sur LinkedIn
- */
+
 export async function sendInvitation(personId: string, message?: string) {
   const accessToken = getAccessToken();
   
@@ -181,14 +198,51 @@ export async function sendInvitation(personId: string, message?: string) {
   }
   
   try {
-    // Dans une implémentation réelle, vous feriez une requête POST à l'API LinkedIn
-    // POST https://api.linkedin.com/v2/invitations
+
+    if (!personId.startsWith('urn:li:person:')) {
+      throw new Error('Format d\'ID de personne invalide. Doit être au format urn:li:person:{id}');
+    }
     
-    // Simuler l'envoi d'une invitation
+
+    const payload: any = {
+      invitee: personId,
+      invitationType: 'CONNECTION',
+    };
+    
+
+    if (message) {
+      payload.message = {
+        subject: 'Invitation à se connecter',
+        body: message.substring(0, 300),
+      };
+    }
+    
+    console.log(`Envoi d'invitation à ${personId} avec payload:`, JSON.stringify(payload, null, 2));
+    
+    const response = await fetch('https://api.linkedin.com/v2/invitations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
+      throw new Error(`LinkedIn API error: ${response.status} - ${responseText.substring(0, 100)}...`);
+    }
+    
+    const data = await response.json();
+    console.log('Réponse d\'invitation LinkedIn:', JSON.stringify(data, null, 2));
+    
     return {
       success: true,
       message: `Invitation envoyée avec succès à ${personId}`,
       includesCustomMessage: !!message,
+      response: data,
     };
   } catch (error) {
     console.error('Erreur lors de l\'envoi d\'une invitation LinkedIn:', error);
@@ -200,9 +254,6 @@ export async function sendInvitation(personId: string, message?: string) {
   }
 }
 
-/**
- * Récupère les invitations de connexion en attente
- */
 export async function getPendingInvitations(direction: InvitationDirection = 'BOTH') {
   const accessToken = getAccessToken();
   
@@ -214,35 +265,62 @@ export async function getPendingInvitations(direction: InvitationDirection = 'BO
   }
   
   try {
-    // Dans une implémentation réelle, vous feriez une requête GET à l'API LinkedIn
-    // GET https://api.linkedin.com/v2/invitations
+    const invitationsUrl = new URL('https://api.linkedin.com/v2/invitations');
     
-    // Simuler des invitations en attente
-    const sentInvitations = direction === 'RECEIVED' ? [] : Array.from({ length: 3 }, (_, i) => ({
-      id: `urn:li:invitation:${300000 + i}`,
-      personId: `urn:li:person:${400000 + i}`,
-      firstName: `Prénom${i + 1}`,
-      lastName: `Nom${i + 1}`,
-      headline: `Professionnel chez Entreprise${i + 1}`,
-      sentAt: new Date(Date.now() - i * 86400000).toISOString(),
-      message: i % 2 === 0 ? `Message personnalisé d'invitation #${i + 1}` : null,
-    }));
+    if (direction === 'SENT') {
+      invitationsUrl.searchParams.append('filter', 'sender');
+    } else if (direction === 'RECEIVED') {
+      invitationsUrl.searchParams.append('filter', 'recipient');
+    }
     
-    const receivedInvitations = direction === 'SENT' ? [] : Array.from({ length: 5 }, (_, i) => ({
-      id: `urn:li:invitation:${500000 + i}`,
-      personId: `urn:li:person:${600000 + i}`,
-      firstName: `Prénom${i + 10}`,
-      lastName: `Nom${i + 10}`,
-      headline: `Professionnel chez Entreprise${i + 10}`,
-      receivedAt: new Date(Date.now() - i * 43200000).toISOString(),
-      message: i % 3 === 0 ? `Message personnalisé d'invitation reçue #${i + 1}` : null,
-    }));
+    console.log(`Récupération des invitations LinkedIn avec URL: ${invitationsUrl.toString()}`);
+    
+    const response = await fetch(invitationsUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
+      throw new Error(`LinkedIn API error: ${response.status} - ${responseText.substring(0, 100)}...`);
+    }
+    
+    const data = await response.json();
+    console.log('Réponse des invitations LinkedIn:', JSON.stringify(data, null, 2));
+    
+    const sentInvitations = direction !== 'RECEIVED' ? 
+      (data.elements?.filter((inv: any) => inv.direction === 'OUTGOING').map((inv: any) => ({
+        id: inv.entityUrn || inv.id,
+        personId: inv.invitee.miniProfile?.entityUrn || inv.invitee,
+        firstName: inv.invitee.miniProfile?.firstName?.localized?.[Object.keys(inv.invitee.miniProfile?.firstName?.localized || {})[0]] || '',
+        lastName: inv.invitee.miniProfile?.lastName?.localized?.[Object.keys(inv.invitee.miniProfile?.lastName?.localized || {})[0]] || '',
+        headline: inv.invitee.miniProfile?.headline?.localized?.[Object.keys(inv.invitee.miniProfile?.headline?.localized || {})[0]] || '',
+        sentAt: inv.sentAt || new Date().toISOString(),
+        message: inv.message?.body || null,
+      })) || []) : [];
+    
+    const receivedInvitations = direction !== 'SENT' ? 
+      (data.elements?.filter((inv: any) => inv.direction === 'INCOMING').map((inv: any) => ({
+        id: inv.entityUrn || inv.id,
+        personId: inv.inviter.miniProfile?.entityUrn || inv.inviter,
+        firstName: inv.inviter.miniProfile?.firstName?.localized?.[Object.keys(inv.inviter.miniProfile?.firstName?.localized || {})[0]] || '',
+        lastName: inv.inviter.miniProfile?.lastName?.localized?.[Object.keys(inv.inviter.miniProfile?.lastName?.localized || {})[0]] || '',
+        headline: inv.inviter.miniProfile?.headline?.localized?.[Object.keys(inv.inviter.miniProfile?.headline?.localized || {})[0]] || '',
+        receivedAt: inv.sharedAt || new Date().toISOString(),
+        message: inv.message?.body || null,
+      })) || []) : [];
     
     return {
       success: true,
       sent: sentInvitations,
       received: receivedInvitations,
       direction,
+      total: data.paging?.total || (sentInvitations.length + receivedInvitations.length),
     };
   } catch (error) {
     console.error('Erreur lors de la récupération des invitations LinkedIn:', error);

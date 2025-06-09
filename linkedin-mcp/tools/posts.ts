@@ -1,19 +1,10 @@
 import { getAccessToken } from './auth.js';
 import { getPersonUrn } from './linkedinAdapter.js';
 
-/**
- * Type de visibilité pour les publications LinkedIn
- */
-export type PostVisibility = 'PUBLIC' | 'CONNECTIONS';
 
-/**
- * Type de portée pour la récupération des publications
- */
+export type PostVisibility = 'PUBLIC' | 'CONNECTIONS';
 export type PostScope = 'SELF' | 'CONNECTIONS';
 
-/**
- * Crée une publication sur LinkedIn
- */
 export async function createPost(text: string, visibility: PostVisibility = 'CONNECTIONS', mediaUrls?: string[]) {
   const accessToken = getAccessToken();
   
@@ -25,7 +16,6 @@ export async function createPost(text: string, visibility: PostVisibility = 'CON
   }
   
   try {
-    // Récupérer l'URN de l'utilisateur
     const personUrn = await getPersonUrn();
     if (!personUrn) {
       return {
@@ -36,9 +26,9 @@ export async function createPost(text: string, visibility: PostVisibility = 'CON
     
     console.log('URN récupéré pour la création de post:', personUrn);
     
-    // Préparer les données pour la création d'un post
+
     const postData = {
-      author: personUrn, // L'URN est déjà au format urn:li:person:XXX
+      author: personUrn,
       lifecycleState: 'PUBLISHED',
       specificContent: {
         'com.linkedin.ugc.ShareContent': {
@@ -78,18 +68,15 @@ export async function createPost(text: string, visibility: PostVisibility = 'CON
     
     console.log('Réponse de l\'API LinkedIn - Status:', response.status);
     
-    // Vérifier la réponse
+
     if (!response.ok) {
-      // Essayer de lire le corps de la réponse comme texte d'abord
       const responseText = await response.text();
       console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
       
-      // Essayer de parser comme JSON si possible
       try {
         const errorData = JSON.parse(responseText);
         throw new Error(`LinkedIn API error: ${response.status} ${JSON.stringify(errorData)}`);
       } catch (parseError) {
-        // Si ce n'est pas du JSON, renvoyer le texte brut
         throw new Error(`LinkedIn API error: ${response.status}\nResponse: ${responseText.substring(0, 100)}...`);
       }
     }
@@ -113,9 +100,6 @@ export async function createPost(text: string, visibility: PostVisibility = 'CON
   }
 }
 
-/**
- * Récupère les publications récentes de l'utilisateur ou de son réseau
- */
 export async function getPosts(count: number = 10, scope: PostScope = 'SELF') {
   const accessToken = getAccessToken();
   
@@ -127,10 +111,8 @@ export async function getPosts(count: number = 10, scope: PostScope = 'SELF') {
   }
   
   try {
-    // Obtenir l'URN de la personne connectée
-    const personUrn = await getPersonUrn();
-    
-    // Construire l'URL de l'API en fonction de la portée
+
+    const personUrn = await getPersonUrn()
     let apiUrl = 'https://api.linkedin.com/v2/ugcPosts';
     
     if (scope === 'SELF') {
@@ -148,18 +130,14 @@ export async function getPosts(count: number = 10, scope: PostScope = 'SELF') {
       },
     });
     
-    // Vérifier la réponse
     if (!response.ok) {
-      // Essayer de lire le corps de la réponse comme texte d'abord
       const responseText = await response.text();
       console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
       
-      // Essayer de parser comme JSON si possible
       try {
         const errorData = JSON.parse(responseText);
         throw new Error(`LinkedIn API error: ${response.status} ${JSON.stringify(errorData)}`);
       } catch (parseError) {
-        // Si ce n'est pas du JSON, renvoyer le texte brut
         throw new Error(`LinkedIn API error: ${response.status}\nResponse: ${responseText.substring(0, 100)}...`);
       }
     }
@@ -182,9 +160,7 @@ export async function getPosts(count: number = 10, scope: PostScope = 'SELF') {
   }
 }
 
-/**
- * Aime une publication LinkedIn
- */
+
 export async function likePost(postId: string) {
   const accessToken = getAccessToken();
   
@@ -196,14 +172,13 @@ export async function likePost(postId: string) {
   }
   
   try {
-    // Préparer les données pour l'action d'aimer
+
     const personUrn = await getPersonUrn();
     const likeData = {
       actor: `urn:li:person:${personUrn}`,
       object: postId
     };
     
-    // Effectuer la requête POST à l'API LinkedIn
     const response = await fetch('https://api.linkedin.com/v2/socialActions', {
       method: 'POST',
       headers: {
@@ -214,18 +189,14 @@ export async function likePost(postId: string) {
       body: JSON.stringify(likeData)
     });
     
-    // Vérifier la réponse
+
     if (!response.ok) {
-      // Essayer de lire le corps de la réponse comme texte d'abord
       const responseText = await response.text();
       console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
-      
-      // Essayer de parser comme JSON si possible
       try {
         const errorData = JSON.parse(responseText);
         throw new Error(`LinkedIn API error: ${response.status} ${JSON.stringify(errorData)}`);
       } catch (parseError) {
-        // Si ce n'est pas du JSON, renvoyer le texte brut
         throw new Error(`LinkedIn API error: ${response.status}\nResponse: ${responseText.substring(0, 100)}...`);
       }
     }
@@ -244,9 +215,7 @@ export async function likePost(postId: string) {
   }
 }
 
-/**
- * Commente une publication LinkedIn
- */
+
 export async function commentPost(postId: string, text: string) {
   const accessToken = getAccessToken();
   
@@ -258,7 +227,6 @@ export async function commentPost(postId: string, text: string) {
   }
   
   try {
-    // Préparer les données pour l'ajout d'un commentaire
     const personUrn = await getPersonUrn();
     const commentData = {
       actor: `urn:li:person:${personUrn}`,
@@ -268,7 +236,6 @@ export async function commentPost(postId: string, text: string) {
       }
     };
     
-    // Effectuer la requête POST à l'API LinkedIn
     const response = await fetch(`https://api.linkedin.com/v2/socialActions/${encodeURIComponent(postId)}/comments`, {
       method: 'POST',
       headers: {
@@ -279,18 +246,15 @@ export async function commentPost(postId: string, text: string) {
       body: JSON.stringify(commentData)
     });
     
-    // Vérifier la réponse
+
     if (!response.ok) {
-      // Essayer de lire le corps de la réponse comme texte d'abord
       const responseText = await response.text();
       console.error(`LinkedIn API error response: ${response.status}\n${responseText}`);
       
-      // Essayer de parser comme JSON si possible
       try {
         const errorData = JSON.parse(responseText);
         throw new Error(`LinkedIn API error: ${response.status} ${JSON.stringify(errorData)}`);
       } catch (parseError) {
-        // Si ce n'est pas du JSON, renvoyer le texte brut
         throw new Error(`LinkedIn API error: ${response.status}\nResponse: ${responseText.substring(0, 100)}...`);
       }
     }
