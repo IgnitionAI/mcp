@@ -1,0 +1,14 @@
+services:
+  node-mcp:
+    build: 
+      context: ./node-mcp/
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+
+  linkedin-mcp:
+    build: 
+      context: ./linkedin-mcp/
+      dockerfile: Dockerfile
+    env_file:
+      - .env
