@@ -17,8 +17,28 @@ The Model Context Protocol (MCP) is a standard that enables AI models to interac
 
 ## Getting Started
 
-Each MCP implementation includes its own documentation and setup instructions. Please refer to the respective directories for more information.
+### Fit-mcp config :
+```json
+    "fit-mcp": {
+      "command": "npx",
+      "args": [
+        "fitmcp"
+      ]
+    },
+```
 
+### Linkedin-mcp config : 
+```json
+    "linkedin": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "linkedin-mcp"
+      ],
+      "env": {
+      }
+    }
+```
 ## Contributing
 
 We welcome contributions from the community! If you'd like to contribute, please feel free to submit pull requests or open issues.
