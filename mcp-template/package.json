@@ -1,0 +1,54 @@
+{
+  "name": "@ignitionai/mcp-template",
+  "version": "1.0.0",
+  "description": "ModelContextProtocol server with tools, prompts and resources",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "mcp-template": "./dist/server.js"
+  },
+  "exports": {
+    ".": "./dist/server.js",
+    "./tools": "./dist/tools/tools.js",
+    "./prompts": "./dist/prompts/prompts.js",
+    "./resources": "./dist/resources/resources.js"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "start": "node dist/server.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.42"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.3",
+    "rollup": "^4.44.0",
+    "rollup-plugin-preserve-shebang": "^1.0.1",
+    "ts-node": "^10.9.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "typescript",
+    "ignitionai",
+    "mcp-template"
+  ],
+  "author": "IgnitionAI",
+  "license": "MIT",
+  "packageManager": "pnpm@10.11.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}

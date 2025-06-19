@@ -1,0 +1,26 @@
+# Dépendances
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+pnpm-lock.yaml
+
+# Environnement
+.env
+
+# Fichiers de construction
+/build
+/dist
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers d'éditeur
+.idea/
+.vscode/
+.cursor
+.windsurf
+*.swp
+*.swo
