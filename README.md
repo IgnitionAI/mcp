@@ -39,6 +39,29 @@ The Model Context Protocol (MCP) is a standard that enables AI models to interac
       }
     }
 ```
+
+### How to Get LinkedIn API Keys
+To obtain the necessary LinkedIn API credentials (`LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and `LINKEDIN_REDIRECT_URI`), follow these steps:
+
+1. **Create a LinkedIn Developer Account**  
+   Visit [LinkedIn Developer Portal](https://www.linkedin.com/developers/) and log in with your LinkedIn account.
+
+2. **Create a New App**  
+   Click **Create app**, fill out the required details, and submit.
+
+3. **Get Client ID and Client Secret**  
+   After creating the app, navigate to the **Auth** or **Settings** tab to find your **Client ID** and **Client Secret**.
+
+4. **Set Redirect URI**  
+   In the app’s **OAuth 2.0 settings**, add your redirect URL (e.g., `https://yourapp.com/auth/linkedin/callback`). Use this URL as your `LINKEDIN_REDIRECT_URI`.
+
+Make sure to create the `env` file, based on the given `.env.example`.
+
+### Run the MCP HTTP Server
+```sh
+docker compose up -d
+```
+
 ## Contributing
 
 We welcome contributions from the community! If you'd like to contribute, please feel free to submit pull requests or open issues.

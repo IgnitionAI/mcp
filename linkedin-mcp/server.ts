@@ -14,8 +14,12 @@ import {
   PostVisibility,
 } from "./tools/posts.js";
 import { getPersonUrn, diagnosticUserInfo } from "./tools/linkedinAdapter.js";
-import { LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI } from "./resources/constant.js";
+import dotenv from "dotenv";
 
+dotenv.config();
+
+const LINKEDIN_CLIENT_ID = process.env.LINKEDIN_CLIENT_ID!;
+const LINKEDIN_REDIRECT_URI = process.env.LINKEDIN_REDIRECT_URI!;
 const server = new McpServer({
   name: "LinkedInMCP",
   version: "1.0.0",

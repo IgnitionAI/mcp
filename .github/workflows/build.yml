@@ -1,0 +1,26 @@
+name: Build
+
+on:
+  workflow_call:
+
+jobs:
+  linkedin-mcp-http:
+    defaults:
+      run:
+        working-directory: linkedin-mcp-http
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build LinkedIn MCP HTTP server
+        run: npm run build
