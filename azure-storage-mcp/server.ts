@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { AzureTableTools } from "./tools/azure-table-tools.js";
 import { AzureBlobTools } from "./tools/azure-blob-tools.js";
 import { AzureQueueTools } from "./tools/azure-queue-tools.js";
+import { AzureStorageQueueTools } from "./tools/azure-storage-queue-tools.js";
 import { AzureTableResources } from "./resources/azure-table-resources.js";
 import { AzureBlobResources } from "./resources/azure-blob-resources.js";
 
@@ -14,7 +15,7 @@ dotenv.config();
 // Create server instance
 const server = new McpServer({
   name: "AzureStorageMCP",
-  version: "1.0.3",
+  version: "1.0.4",
   description: "MCP server for interacting with Azure Storage"
 });
 
@@ -22,6 +23,7 @@ const server = new McpServer({
 let azureTableTools: AzureTableTools | null = null;
 let azureBlobTools: AzureBlobTools | null = null;
 let azureQueueTools: AzureQueueTools | null = null;
+let azureStorageQueueTools: AzureStorageQueueTools | null = null;
 
 function getAzureTableTools(): AzureTableTools {
   if (!azureTableTools) {
@@ -46,6 +48,15 @@ function getAzureQueueTools(): AzureQueueTools {
     azureQueueTools = new AzureQueueTools({ connectionString, namespaceName });
   }
   return azureQueueTools;
+}
+
+function getAzureStorageQueueTools(): AzureStorageQueueTools {
+  if (!azureStorageQueueTools) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    azureStorageQueueTools = new AzureStorageQueueTools({ connectionString, accountName });
+  }
+  return azureStorageQueueTools;
 }
 
 // Register Azure Table tools
@@ -1115,6 +1126,312 @@ server.tool(
   async ({ queueName }) => {
     try {
       const result = await getAzureQueueTools().getQueueProperties(queueName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la récupération des propriétés: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+// Register Azure Storage Queue tools
+server.tool(
+  "list-azure-storage-queues",
+  "Lister toutes les queues Azure Storage disponibles",
+  {},
+  async () => {
+    try {
+      const result = await getAzureStorageQueueTools().listQueues();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la liste des queues: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "create-azure-storage-queue",
+  "Créer une nouvelle queue Azure Storage",
+  {
+    queueName: z.string().describe("Nom de la queue à créer (3-63 caractères, lettres minuscules, chiffres et tirets)"),
+    metadata: z.record(z.string()).optional().describe("Métadonnées de la queue"),
+  },
+  async ({ queueName, metadata }) => {
+    try {
+      const result = await getAzureStorageQueueTools().createQueue(queueName, { metadata });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la création de la queue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "delete-azure-storage-queue",
+  "Supprimer une queue Azure Storage. ATTENTION: Cette opération supprime la queue et tous ses messages !",
+  {
+    queueName: z.string().describe("Nom de la queue à supprimer"),
+  },
+  async ({ queueName }) => {
+    try {
+      const result = await getAzureStorageQueueTools().deleteQueue(queueName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la suppression de la queue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "send-storage-queue-message",
+  "Envoyer un message dans une queue Azure Storage",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    messageText: z.string().describe("Texte du message à envoyer (max 64KB)"),
+  },
+  async ({ queueName, messageText }) => {
+    try {
+      const result = await getAzureStorageQueueTools().sendMessage(queueName, messageText);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de l'envoi du message: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "receive-storage-queue-messages",
+  "Recevoir et traiter des messages d'une queue Azure Storage (les messages deviennent invisibles temporairement)",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à recevoir (1-32)"),
+  },
+  async ({ queueName, numberOfMessages }) => {
+    try {
+      const result = await getAzureStorageQueueTools().receiveMessages(queueName, {
+        numberOfMessages,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la réception des messages: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "peek-storage-queue-messages",
+  "Aperçu des messages d'une queue Azure Storage (sans les rendre invisibles)",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à apercevoir (1-32)"),
+  },
+  async ({ queueName, numberOfMessages }) => {
+    try {
+      const result = await getAzureStorageQueueTools().peekMessages(queueName, {
+        numberOfMessages,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de l'aperçu des messages: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "delete-storage-queue-message",
+  "Supprimer un message spécifique d'une queue Azure Storage",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    messageId: z.string().describe("ID du message à supprimer"),
+    popReceipt: z.string().describe("Pop receipt du message (obtenu lors de la réception)"),
+  },
+  async ({ queueName, messageId, popReceipt }) => {
+    try {
+      const result = await getAzureStorageQueueTools().deleteMessage(queueName, messageId, popReceipt);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la suppression du message: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "clear-storage-queue-messages",
+  "Vider tous les messages d'une queue Azure Storage",
+  {
+    queueName: z.string().describe("Nom de la queue à vider"),
+  },
+  async ({ queueName }) => {
+    try {
+      const result = await getAzureStorageQueueTools().clearMessages(queueName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors du vidage de la queue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "get-azure-storage-queue-properties",
+  "Obtenir les propriétés et statistiques d'une queue Azure Storage",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+  },
+  async ({ queueName }) => {
+    try {
+      const result = await getAzureStorageQueueTools().getQueueProperties(queueName);
 
       return {
         content: [

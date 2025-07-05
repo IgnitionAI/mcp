@@ -420,3 +420,102 @@ export const GetQueuePropertiesSchema = z.object({
 });
 
 export type GetQueuePropertiesParams = z.infer<typeof GetQueuePropertiesSchema>;
+
+// Azure Storage Queue schemas (différent des Service Bus Queues)
+const azureStorageQueueNameRegex = /^[a-z0-9]([a-z0-9-]){1,61}[a-z0-9]$/;
+
+// Schema pour les paramètres de connexion Azure Storage Queue
+export const AzureStorageQueueConfigSchema = z.object({
+  accountName: z.string().optional(),
+  connectionString: z.string().optional(),
+}).refine(data => data.accountName || data.connectionString, {
+  message: "Either accountName or connectionString must be provided"
+});
+
+export type AzureStorageQueueConfig = z.infer<typeof AzureStorageQueueConfigSchema>;
+
+// Schema pour créer une queue storage
+export const CreateStorageQueueSchema = z.object({
+  queueName: z.string()
+    .min(3, "Le nom de la queue doit contenir au moins 3 caractères")
+    .max(63, "Le nom de la queue ne peut pas dépasser 63 caractères")
+    .regex(azureStorageQueueNameRegex, "Le nom de la queue doit contenir seulement des lettres minuscules, chiffres et tirets")
+    .describe("Nom de la queue à créer"),
+  metadata: z.record(z.string()).optional().describe("Métadonnées de la queue"),
+});
+
+export type CreateStorageQueueParams = z.infer<typeof CreateStorageQueueSchema>;
+
+// Schema pour supprimer une queue storage
+export const DeleteStorageQueueSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue à supprimer"),
+});
+
+export type DeleteStorageQueueParams = z.infer<typeof DeleteStorageQueueSchema>;
+
+// Schema pour envoyer un message storage
+export const SendStorageMessageSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  messageText: z.string()
+    .min(1, "Le texte du message ne peut pas être vide")
+    .max(65536, "Le message ne peut pas dépasser 64KB")
+    .describe("Texte du message à envoyer"),
+  visibilityTimeoutInSeconds: z.number().min(1).max(604800).optional().describe("Délai de visibilité en secondes (1-604800)"),
+  messageTimeToLiveInSeconds: z.number().min(1).max(604800).optional().describe("TTL du message en secondes (1-604800)"),
+});
+
+export type SendStorageMessageParams = z.infer<typeof SendStorageMessageSchema>;
+
+// Schema pour recevoir des messages storage
+export const ReceiveStorageMessagesSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à recevoir (1-32)"),
+  visibilityTimeoutInSeconds: z.number().min(1).max(43200).optional().describe("Délai de visibilité en secondes (1-43200)"),
+});
+
+export type ReceiveStorageMessagesParams = z.infer<typeof ReceiveStorageMessagesSchema>;
+
+// Schema pour aperçu des messages storage
+export const PeekStorageMessagesSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à apercevoir (1-32)"),
+});
+
+export type PeekStorageMessagesParams = z.infer<typeof PeekStorageMessagesSchema>;
+
+// Schema pour supprimer un message storage
+export const DeleteStorageMessageSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  messageId: z.string().describe("ID du message à supprimer"),
+  popReceipt: z.string().describe("Pop receipt du message"),
+});
+
+export type DeleteStorageMessageParams = z.infer<typeof DeleteStorageMessageSchema>;
+
+// Schema pour obtenir les propriétés d'une queue storage
+export const GetStorageQueuePropertiesSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+});
+
+export type GetStorageQueuePropertiesParams = z.infer<typeof GetStorageQueuePropertiesSchema>;
+
+// Schema pour vider une queue storage
+export const ClearStorageQueueSchema = z.object({
+  queueName: z.string()
+    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue à vider"),
+});
+
+export type ClearStorageQueueParams = z.infer<typeof ClearStorageQueueSchema>;
