@@ -1,0 +1,36 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'node', args: ['dist/server.js'], env: {
+          AZURE_STORAGE_CONNECTION_STRING: config.azureStorageConnectionString,
+          AZURE_SERVICE_BUS_CONNECTION_STRING: config.azureServiceBusConnectionString
+        } })
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - azureStorageConnectionString
+      - azureServiceBusConnectionString
+    properties:
+      azureStorageConnectionString:
+        type: string
+        description: Azure Storage connection string
+      azureServiceBusConnectionString:
+        type: string
+        description: Azure Service Bus connection string
+      azureStorageAccountName:
+        type: string
+        description: Azure Storage account name (alternative to connection string)
+      azureServiceBusNamespace:
+        type: string
+        description: Azure Service Bus namespace (alternative to connection string)
+    description: Configuration for Azure Storage MCP server
+  exampleConfig:
+    azureStorageConnectionString: DefaultEndpointsProtocol=https;AccountName=demoAccount;AccountKey=REPLACE_KEY;EndpointSuffix=core.windows.net
+    azureServiceBusConnectionString: Endpoint=sb://demo.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=REPLACE_KEY
+    azureStorageAccountName: demoAccount
+    azureServiceBusNamespace: demo
