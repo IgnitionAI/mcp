@@ -333,3 +333,90 @@ export const GetBlobPropertiesSchema = z.object({
 });
 
 export type GetBlobPropertiesParams = z.infer<typeof GetBlobPropertiesSchema>;
+
+// Azure Service Bus Queue schemas
+const azureQueueNameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-._]){0,258}[a-zA-Z0-9]$/;
+
+// Schema pour les paramètres de connexion Azure Service Bus
+export const AzureQueueConfigSchema = z.object({
+  namespaceName: z.string().optional(),
+  connectionString: z.string().optional(),
+}).refine(data => data.namespaceName || data.connectionString, {
+  message: "Either namespaceName or connectionString must be provided"
+});
+
+export type AzureQueueConfig = z.infer<typeof AzureQueueConfigSchema>;
+
+// Schema pour créer une queue
+export const CreateQueueSchema = z.object({
+  queueName: z.string()
+    .min(1, "Le nom de la queue ne peut pas être vide")
+    .max(260, "Le nom de la queue ne peut pas dépasser 260 caractères")
+    .regex(azureQueueNameRegex, "Le nom de la queue doit commencer et finir par une lettre/chiffre, peut contenir lettres, chiffres, tirets, points et underscores")
+    .describe("Nom de la queue à créer"),
+  maxSizeInMegabytes: z.number().min(1).max(5120).optional().describe("Taille max en MB (1-5120)"),
+  defaultMessageTimeToLive: z.string().optional().describe("TTL par défaut des messages (format ISO 8601, ex: P14D pour 14 jours)"),
+  lockDuration: z.string().optional().describe("Durée de verrouillage des messages (format ISO 8601, ex: PT30S pour 30 secondes)"),
+  requiresDuplicateDetection: z.boolean().optional().describe("Activer la détection de doublons"),
+  requiresSession: z.boolean().optional().describe("Requiert des sessions"),
+  deadLetteringOnMessageExpiration: z.boolean().optional().describe("Activer dead letter sur expiration"),
+});
+
+export type CreateQueueParams = z.infer<typeof CreateQueueSchema>;
+
+// Schema pour supprimer une queue
+export const DeleteQueueSchema = z.object({
+  queueName: z.string()
+    .regex(azureQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue à supprimer"),
+});
+
+export type DeleteQueueParams = z.infer<typeof DeleteQueueSchema>;
+
+// Schema pour envoyer un message
+export const SendMessageSchema = z.object({
+  queueName: z.string()
+    .regex(azureQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  messageBody: z.string()
+    .min(1, "Le corps du message ne peut pas être vide")
+    .describe("Corps du message à envoyer"),
+  messageId: z.string().optional().describe("ID unique du message"),
+  correlationId: z.string().optional().describe("ID de corrélation"),
+  label: z.string().optional().describe("Label/sujet du message"),
+  timeToLive: z.number().optional().describe("TTL du message en millisecondes"),
+  sessionId: z.string().optional().describe("ID de session (si sessions activées)"),
+  userProperties: z.record(z.any()).optional().describe("Propriétés personnalisées du message"),
+});
+
+export type SendMessageParams = z.infer<typeof SendMessageSchema>;
+
+// Schema pour recevoir des messages
+export const ReceiveMessageSchema = z.object({
+  queueName: z.string()
+    .regex(azureQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages à recevoir (1-100)"),
+  maxWaitTimeInMs: z.number().min(1).max(300000).optional().describe("Temps d'attente max en ms (1-300000)"),
+});
+
+export type ReceiveMessageParams = z.infer<typeof ReceiveMessageSchema>;
+
+// Schema pour aperçu des messages
+export const PeekMessageSchema = z.object({
+  queueName: z.string()
+    .regex(azureQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+  maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages à apercevoir (1-100)"),
+});
+
+export type PeekMessageParams = z.infer<typeof PeekMessageSchema>;
+
+// Schema pour obtenir les propriétés d'une queue
+export const GetQueuePropertiesSchema = z.object({
+  queueName: z.string()
+    .regex(azureQueueNameRegex, "Nom de queue invalide")
+    .describe("Nom de la queue"),
+});
+
+export type GetQueuePropertiesParams = z.infer<typeof GetQueuePropertiesSchema>;

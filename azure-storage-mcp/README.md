@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/@ignitionai%2Fazure-storage-mcp.svg)](https://badge.fury.io/js/@ignitionai%2Fazure-storage-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for Azure Table Storage, providing complete CRUD operations, batch processing, schema validation, and advanced querying capabilities.
+A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for Azure Storage services, providing complete integration with Azure Table Storage, Azure Blob Storage, and Azure Service Bus Queues. Features include CRUD operations, batch processing, schema validation, advanced querying, container management, blob operations, and asynchronous workflow orchestration.
 
 ## Features
 
@@ -12,16 +12,23 @@ A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 
 - **Batch Processing**: Handle up to 100 entities per operation
 - **Table Management**: Create and delete tables
 - **Advanced Querying**: OData filters, pagination, sorting
+- **Container Management**: Create, list, and delete blob containers
+- **Blob Operations**: Upload, download, list, and delete blobs
+- **Queue Management**: Create, list, and delete Service Bus queues
+- **Message Operations**: Send, receive, and peek queue messages
 
 ### 🛡️ **Data Integrity**
 - **Schema Validation**: Automatic inference and validation against existing data
-- **Type Safety**: Comprehensive Zod validation for Azure Table Storage constraints
+- **Type Safety**: Comprehensive Zod validation for all Azure Storage services
 - **Error Handling**: Detailed error messages with actionable suggestions
+- **Content Type Detection**: Automatic MIME type detection for blob uploads
 
 ### ⚡ **Performance & Reliability**
 - **Efficient Batching**: Automatic grouping by PartitionKey
-- **Resource Discovery**: Dynamic table and entity discovery
+- **Resource Discovery**: Dynamic table, container, and queue discovery
 - **Connection Flexibility**: Support for connection strings and managed identity
+- **Asynchronous Processing**: Queue-based workflows for long-running tasks
+- **Lazy Loading**: Service clients instantiated only when needed
 
 ## Installation
 
@@ -43,6 +50,13 @@ AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=...;
 AZURE_STORAGE_ACCOUNT_NAME="your-storage-account"
 ```
 
+**Add your Service Bus connection (for queues)**
+```bash
+AZURE_SERVICE_BUS_CONNECTION_STRING="Endpoint=sb://your-namespace.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=..."
+# OR
+AZURE_SERVICE_BUS_NAMESPACE="your-namespace"
+```
+
 ### 2. Add to Claude Desktop Configuration
 
 Add to your `claude_desktop_config.json`:
@@ -58,7 +72,8 @@ Add to your `claude_desktop_config.json`:
       ],
       "env": {
         "AZURE_STORAGE_CONNECTION_STRING": "YOUR_CONNECTION_STRING",
-        "AZURE_STORAGE_ACCOUNT_NAME": "YOUR_ACCOUNT_NAME"
+        "AZURE_STORAGE_ACCOUNT_NAME": "YOUR_ACCOUNT_NAME",
+        "AZURE_SERVICE_BUS_CONNECTION_STRING": "YOUR_SERVICE_BUS_CONNECTION_STRING"
       }
     }
 }
@@ -66,7 +81,7 @@ Add to your `claude_desktop_config.json`:
 
 ### 3. Start Using with Claude
 
-The server will automatically discover your tables and provide 13 powerful tools:
+The server will automatically discover your tables, containers, and queues, providing 28 powerful tools:
 
 ## Available Tools
 
@@ -91,9 +106,34 @@ The server will automatically discover your tables and provide 13 powerful tools
 - `query-azure-table-advanced` - Advanced queries with pagination and sorting
 - `inspect-azure-table-schema` - Analyze existing data structure
 
+### 📦 **Container Operations**
+- `create-blob-container` - Create new blob containers
+- `list-blob-containers` - List all containers
+- `delete-blob-container` - Delete containers
+- `get-container-properties` - Get container metadata
+
+### 🗃️ **Blob Operations**
+- `upload-blob` - Upload files to blob storage
+- `download-blob` - Download blobs with metadata
+- `read-azure-blob` - Read blob content as text
+- `list-blobs` - List blobs in container
+- `delete-blob` - Delete individual blobs
+- `get-blob-properties` - Get blob metadata
+
+### 🚀 **Queue Operations**
+- `send-queue-message` - Send messages to queues
+- `receive-queue-message` - Receive and process messages
+- `peek-queue-message` - Preview messages without consuming
+- `create-azure-queue` - Create new Service Bus queues
+- `list-azure-queues` - List all available queues
+- `delete-azure-queue` - Delete queues
+- `get-azure-queue-properties` - Get queue metadata and stats
+
 ## Usage Examples
 
-### Creating Entities
+### Table Storage
+
+#### Creating Entities
 
 ```typescript
 // Claude will automatically validate against existing schema
@@ -154,6 +194,58 @@ await inspectTableSchema({
 })
 ```
 
+### Blob Storage
+
+#### Uploading Files
+
+```typescript
+// Upload a file to blob storage
+await uploadBlob({
+  containerName: "documents",
+  blobName: "report-2024.pdf",
+  content: "<file content>",
+  contentType: "application/pdf",
+  overwrite: true
+})
+```
+
+#### Managing Containers
+
+```typescript
+// Create a new container
+await createContainer({
+  containerName: "project-assets",
+  publicAccess: "none",
+  metadata: {
+    project: "webapp-redesign",
+    environment: "production"
+  }
+})
+```
+
+### Queue Storage
+
+#### Asynchronous Task Processing
+
+```typescript
+// Send a long-running task to a queue
+await sendQueueMessage({
+  queueName: "data-processing",
+  messageBody: JSON.stringify({
+    operation: "analyze-sales-data",
+    dataset: "sales-2024-q4.csv",
+    filters: ["region=NA", "product=software"]
+  }),
+  correlationId: "analysis-session-123"
+})
+
+// Later, check for results
+await peekQueueMessage({
+  queueName: "analysis-results",
+  maxMessageCount: 1
+})
+```
+
 ## Schema Validation
 
 The server automatically analyzes existing data to ensure new entries conform to established patterns:
@@ -169,23 +261,45 @@ The server automatically analyzes existing data to ensure new entries conform to
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `AZURE_STORAGE_CONNECTION_STRING` | Full connection string | One of these |
+| `AZURE_STORAGE_CONNECTION_STRING` | Storage account connection string | One of these |
 | `AZURE_STORAGE_ACCOUNT_NAME` | Storage account name (for managed identity) | One of these |
+| `AZURE_SERVICE_BUS_CONNECTION_STRING` | Service Bus connection string | One of these |
+| `AZURE_SERVICE_BUS_NAMESPACE` | Service Bus namespace (for managed identity) | One of these |
 
-### Azure Table Storage Limits
+### Azure Storage Limits
 
-The server enforces Azure Table Storage constraints:
+The server enforces Azure Storage constraints:
+
+**Table Storage:**
 - **Entity Size**: Max 252 properties per entity
 - **Property Size**: Max 64KB for string/binary values
 - **Batch Size**: Max 100 entities per batch operation
 - **Key Format**: PartitionKey/RowKey cannot contain `/`, `\\`, `#`, `?`
 
+**Blob Storage:**
+- **Blob Size**: Max 200GB per blob (block blobs)
+- **Container Names**: 3-63 characters, lowercase letters, numbers, hyphens
+- **Blob Names**: Max 1024 characters
+
+**Service Bus Queues:**
+- **Message Size**: Max 256KB (Standard), 1MB (Premium)
+- **Queue Size**: Max 80GB
+- **Message TTL**: Max 14 days
+
 ## Dynamic Resources
 
-Tables are automatically discovered and exposed as MCP resources:
+All Azure Storage resources are automatically discovered and exposed as MCP resources:
 
+**Tables:**
 - `azure-table://{tableName}` - Full table data
 - `azure-table://{tableName}/{partitionKey}` - Filtered by partition
+
+**Blob Containers:**
+- `azure-blob://{containerName}` - Container contents
+- `azure-blob://{containerName}/{blobName}` - Individual blob
+
+**Service Bus Queues:**
+- `azure-queue://{queueName}` - Queue properties and messages
 
 ## Development
 

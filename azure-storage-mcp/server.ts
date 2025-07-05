@@ -5,6 +5,7 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import { AzureTableTools } from "./tools/azure-table-tools.js";
 import { AzureBlobTools } from "./tools/azure-blob-tools.js";
+import { AzureQueueTools } from "./tools/azure-queue-tools.js";
 import { AzureTableResources } from "./resources/azure-table-resources.js";
 import { AzureBlobResources } from "./resources/azure-blob-resources.js";
 
@@ -13,13 +14,14 @@ dotenv.config();
 // Create server instance
 const server = new McpServer({
   name: "AzureStorageMCP",
-  version: "1.0.2",
+  version: "1.0.3",
   description: "MCP server for interacting with Azure Storage"
 });
 
-// Initialisation des outils Azure Table (lazy loading)
+// Initialisation des outils Azure (lazy loading)
 let azureTableTools: AzureTableTools | null = null;
 let azureBlobTools: AzureBlobTools | null = null;
+let azureQueueTools: AzureQueueTools | null = null;
 
 function getAzureTableTools(): AzureTableTools {
   if (!azureTableTools) {
@@ -35,6 +37,15 @@ function getAzureBlobTools(): AzureBlobTools {
     azureBlobTools = new AzureBlobTools({ connectionString, accountName });
   }
   return azureBlobTools;
+}
+
+function getAzureQueueTools(): AzureQueueTools {
+  if (!azureQueueTools) {
+    const connectionString = process.env.AZURE_SERVICE_BUS_CONNECTION_STRING;
+    const namespaceName = process.env.AZURE_SERVICE_BUS_NAMESPACE;
+    azureQueueTools = new AzureQueueTools({ connectionString, namespaceName });
+  }
+  return azureQueueTools;
 }
 
 // Register Azure Table tools
@@ -839,6 +850,271 @@ server.tool(
   async ({ containerName, blobName }) => {
     try {
       const result = await getAzureBlobTools().getBlobProperties(containerName, blobName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la récupération des propriétés: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+// Register Azure Service Bus Queue tools
+server.tool(
+  "list-azure-queues",
+  "Lister toutes les queues Azure Service Bus disponibles",
+  {},
+  async () => {
+    try {
+      const result = await getAzureQueueTools().listQueues();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la liste des queues: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "create-azure-queue",
+  "Créer une nouvelle queue Azure Service Bus",
+  {
+    queueName: z.string().describe("Nom de la queue à créer"),
+    maxSizeInMegabytes: z.number().min(1).max(5120).optional().describe("Taille max en MB (1-5120)"),
+    defaultMessageTimeToLive: z.string().optional().describe("TTL par défaut (ISO 8601, ex: P14D)"),
+    lockDuration: z.string().optional().describe("Durée de verrouillage (ISO 8601, ex: PT30S)"),
+    requiresDuplicateDetection: z.boolean().optional().describe("Activer détection doublons"),
+    requiresSession: z.boolean().optional().describe("Requiert des sessions"),
+    deadLetteringOnMessageExpiration: z.boolean().optional().describe("Dead letter sur expiration"),
+  },
+  async ({ queueName, maxSizeInMegabytes, defaultMessageTimeToLive, lockDuration, requiresDuplicateDetection, requiresSession, deadLetteringOnMessageExpiration }) => {
+    try {
+      const result = await getAzureQueueTools().createQueue(queueName, {
+        maxSizeInMegabytes,
+        defaultMessageTimeToLive,
+        lockDuration,
+        requiresDuplicateDetection,
+        requiresSession,
+        deadLetteringOnMessageExpiration,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la création de la queue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "delete-azure-queue",
+  "Supprimer une queue Azure Service Bus. ATTENTION: Cette opération supprime la queue et tous ses messages !",
+  {
+    queueName: z.string().describe("Nom de la queue à supprimer"),
+  },
+  async ({ queueName }) => {
+    try {
+      const result = await getAzureQueueTools().deleteQueue(queueName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la suppression de la queue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "send-queue-message",
+  "Envoyer un message dans une queue Azure Service Bus",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    messageBody: z.string().describe("Corps du message à envoyer"),
+    messageId: z.string().optional().describe("ID unique du message"),
+    correlationId: z.string().optional().describe("ID de corrélation"),
+    label: z.string().optional().describe("Label/sujet du message"),
+    timeToLive: z.number().optional().describe("TTL du message en millisecondes"),
+    sessionId: z.string().optional().describe("ID de session"),
+    userProperties: z.record(z.any()).optional().describe("Propriétés personnalisées"),
+  },
+  async ({ queueName, messageBody, messageId, correlationId, label, timeToLive, sessionId, userProperties }) => {
+    try {
+      const result = await getAzureQueueTools().sendMessage(queueName, messageBody, {
+        messageId,
+        correlationId,
+        label,
+        timeToLive,
+        sessionId,
+        userProperties,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de l'envoi du message: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "receive-queue-message",
+  "Recevoir et traiter des messages d'une queue Azure Service Bus (les messages sont supprimés de la queue)",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages (1-100)"),
+    maxWaitTimeInMs: z.number().min(1).max(300000).optional().describe("Temps d'attente max en ms"),
+  },
+  async ({ queueName, maxMessageCount, maxWaitTimeInMs }) => {
+    try {
+      const result = await getAzureQueueTools().receiveMessage(queueName, {
+        maxMessageCount,
+        maxWaitTimeInMs,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la réception du message: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "peek-queue-message",
+  "Aperçu des messages d'une queue Azure Service Bus (sans les supprimer)",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+    maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages (1-100)"),
+  },
+  async ({ queueName, maxMessageCount }) => {
+    try {
+      const result = await getAzureQueueTools().peekMessage(queueName, {
+        maxMessageCount,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de l'aperçu des messages: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "get-azure-queue-properties",
+  "Obtenir les propriétés et statistiques d'une queue Azure Service Bus",
+  {
+    queueName: z.string().describe("Nom de la queue"),
+  },
+  async ({ queueName }) => {
+    try {
+      const result = await getAzureQueueTools().getQueueProperties(queueName);
 
       return {
         content: [

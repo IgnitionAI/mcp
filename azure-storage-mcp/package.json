@@ -1,6 +1,6 @@
 {
     "name": "@ignitionai/azure-storage-mcp",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Complete Azure Storage MCP server with CRUD operations, batch processing, schema validation, and advanced querying for Azure Blob and Azure Table",
     "type": "module",
     "bin": {
@@ -52,6 +52,7 @@
     "dependencies": {
         "@azure/data-tables": "^13.3.1",
         "@azure/identity": "^4.10.2",
+        "@azure/service-bus": "^7.9.5",
         "@azure/storage-blob": "^12.27.0",
         "@modelcontextprotocol/sdk": "^1.12.1",
         "dotenv": "^16.5.0",
