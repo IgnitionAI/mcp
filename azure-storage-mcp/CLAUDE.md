@@ -11,19 +11,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is an MCP (Model Context Protocol) server that provides Azure Table Storage integration. The server exposes Azure Table data as both tools and resources.
+This is an MCP (Model Context Protocol) server that provides comprehensive Azure Storage integration, supporting both Azure Table Storage and Azure Blob Storage. The server exposes Azure storage services as both tools and resources.
 
 ### Core Components
 
 - **server.ts** - Main MCP server entry point with tool registration and dynamic resource management
 - **tools/azure-table-tools.ts** - Azure Table Storage client wrapper with authentication handling
+- **tools/azure-blob-tools.ts** - Azure Blob Storage client wrapper with container and blob operations
+- **resources/azure-table-resources.ts** - Dynamic resource registration for Azure Tables
+- **resources/azure-blob-resources.ts** - Dynamic resource registration for Azure Blob containers
 - **types.ts** - Zod schemas for type validation and parameter definitions
 
 ### Key Architecture Patterns
 
-1. **Lazy Loading**: Azure Table Tools are instantiated only when first accessed through `getAzureTableTools()`
+1. **Lazy Loading**: Azure Table and Blob Tools are instantiated only when first accessed through `getAzureTableTools()` and `getAzureBlobTools()`
 
-2. **Dynamic Resource Registration**: The server discovers available Azure tables at startup and creates resources for each table automatically, including filtered views by PartitionKey
+2. **Dynamic Resource Registration**: The server discovers available Azure tables and blob containers at startup and creates resources automatically, including filtered views by PartitionKey (tables) and prefix (blobs)
 
 3. **Dual Authentication**: Supports both connection string and managed identity authentication via `DefaultAzureCredential`
 
@@ -31,8 +34,13 @@ This is an MCP (Model Context Protocol) server that provides Azure Table Storage
 
 ### MCP Integration Points
 
-- **Tools**: `read-azure-table` and `list-azure-tables` expose Azure operations as callable tools
+#### Azure Table Storage
+- **Tools**: Complete CRUD operations, batch processing, schema inspection, and advanced querying
 - **Resources**: Dynamic resources created for each discovered table with URIs like `azure-table://{tableName}` and `azure-table://{tableName}/{partitionKey}`
+
+#### Azure Blob Storage  
+- **Tools**: Container management (create, list, delete), blob operations (upload, download, list, delete, properties)
+- **Resources**: Dynamic resources created for each discovered container with URIs like `azure-blob://{containerName}`, `azure-blob://{containerName}/{blobName}`, and `azure-blob://{containerName}/prefix/{prefix}`
 
 ### Configuration
 

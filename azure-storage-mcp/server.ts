@@ -4,25 +4,37 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import dotenv from "dotenv";
 import { AzureTableTools } from "./tools/azure-table-tools.js";
+import { AzureBlobTools } from "./tools/azure-blob-tools.js";
 import { AzureTableResources } from "./resources/azure-table-resources.js";
+import { AzureBlobResources } from "./resources/azure-blob-resources.js";
 
 dotenv.config();
 
 // Create server instance
 const server = new McpServer({
   name: "AzureStorageMCP",
-  version: "1.0.1",
-  description: "Serveur MCP pour interagir avec Azure Storage"
+  version: "1.0.2",
+  description: "MCP server for interacting with Azure Storage"
 });
 
 // Initialisation des outils Azure Table (lazy loading)
 let azureTableTools: AzureTableTools | null = null;
+let azureBlobTools: AzureBlobTools | null = null;
 
 function getAzureTableTools(): AzureTableTools {
   if (!azureTableTools) {
     azureTableTools = new AzureTableTools();
   }
   return azureTableTools;
+}
+
+function getAzureBlobTools(): AzureBlobTools {
+  if (!azureBlobTools) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    azureBlobTools = new AzureBlobTools({ connectionString, accountName });
+  }
+  return azureBlobTools;
 }
 
 // Register Azure Table tools
@@ -528,11 +540,338 @@ server.tool(
   },
 );
 
+// Register Azure Blob tools
+server.tool(
+  "list-azure-blob-containers",
+  "Lister tous les containers Azure Blob Storage disponibles",
+  {},
+  async () => {
+    try {
+      const result = await getAzureBlobTools().listContainers();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la liste des containers: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "create-azure-blob-container",
+  "Créer un nouveau container Azure Blob Storage",
+  {
+    containerName: z.string().describe("Nom du container (3-63 caractères, lettres minuscules, chiffres et tirets)"),
+    publicAccess: z.enum(["container", "blob"]).optional().describe("Niveau d'accès public (container ou blob)"),
+  },
+  async ({ containerName, publicAccess }) => {
+    try {
+      const result = await getAzureBlobTools().createContainer(containerName, { publicAccess });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la création du container: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "delete-azure-blob-container",
+  "Supprimer un container Azure Blob Storage. ATTENTION: Cette opération supprime le container et tous ses blobs !",
+  {
+    containerName: z.string().describe("Nom du container à supprimer"),
+  },
+  async ({ containerName }) => {
+    try {
+      const result = await getAzureBlobTools().deleteContainer(containerName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la suppression du container: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "list-azure-blobs",
+  "Lister tous les blobs dans un container Azure Blob Storage",
+  {
+    containerName: z.string().describe("Nom du container"),
+    prefix: z.string().optional().describe("Préfixe pour filtrer les blobs"),
+  },
+  async ({ containerName, prefix }) => {
+    try {
+      const result = await getAzureBlobTools().listBlobs(containerName, prefix);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la liste des blobs: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "upload-azure-blob",
+  "Uploader un blob dans un container Azure Blob Storage",
+  {
+    containerName: z.string().describe("Nom du container"),
+    blobName: z.string().describe("Nom du blob à uploader"),
+    content: z.string().describe("Contenu du blob (texte ou base64)"),
+    contentType: z.string().optional().describe("Type MIME du contenu"),
+    metadata: z.record(z.string()).optional().describe("Métadonnées du blob"),
+    overwrite: z.boolean().optional().default(false).describe("Remplacer le blob s'il existe déjà"),
+  },
+  async ({ containerName, blobName, content, contentType, metadata, overwrite }) => {
+    try {
+      const result = await getAzureBlobTools().uploadBlob(containerName, blobName, content, {
+        contentType,
+        metadata,
+        overwrite,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de l'upload du blob: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "read-azure-blob",
+  "Lire le contenu d'un blob Azure Blob Storage (version simplifiée)",
+  {
+    containerName: z.string().describe("Nom du container"),
+    blobName: z.string().describe("Nom du blob à lire"),
+  },
+  async ({ containerName, blobName }) => {
+    try {
+      const result = await getAzureBlobTools().downloadBlob(containerName, blobName);
+
+      if (result.success && result.data) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: result.data.content,
+            },
+          ],
+          isError: false,
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: result.error || "Erreur lors de la lecture du blob",
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la lecture du blob: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "download-azure-blob",
+  "Télécharger un blob depuis un container Azure Blob Storage (avec métadonnées complètes)",
+  {
+    containerName: z.string().describe("Nom du container"),
+    blobName: z.string().describe("Nom du blob à télécharger"),
+  },
+  async ({ containerName, blobName }) => {
+    try {
+      const result = await getAzureBlobTools().downloadBlob(containerName, blobName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors du téléchargement du blob: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "delete-azure-blob",
+  "Supprimer un blob dans un container Azure Blob Storage",
+  {
+    containerName: z.string().describe("Nom du container"),
+    blobName: z.string().describe("Nom du blob à supprimer"),
+  },
+  async ({ containerName, blobName }) => {
+    try {
+      const result = await getAzureBlobTools().deleteBlob(containerName, blobName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la suppression du blob: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+server.tool(
+  "get-azure-blob-properties",
+  "Obtenir les propriétés et métadonnées d'un blob Azure Blob Storage",
+  {
+    containerName: z.string().describe("Nom du container"),
+    blobName: z.string().describe("Nom du blob"),
+  },
+  async ({ containerName, blobName }) => {
+    try {
+      const result = await getAzureBlobTools().getBlobProperties(containerName, blobName);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+        isError: !result.success,
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Erreur lors de la récupération des propriétés: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
 // Start the server
 async function main() {
   // Enregistrer dynamiquement les ressources pour toutes les tables
-  const resourceManager = new AzureTableResources(server, getAzureTableTools());
-  await resourceManager.registerDynamicResources();
+  const tableResourceManager = new AzureTableResources(server, getAzureTableTools());
+  await tableResourceManager.registerDynamicResources();
+  
+  // Enregistrer dynamiquement les ressources pour tous les containers blob
+  const blobResourceManager = new AzureBlobResources(server, getAzureBlobTools());
+  await blobResourceManager.registerDynamicResources();
   
   const transport = new StdioServerTransport();
   await server.connect(transport);

@@ -235,3 +235,101 @@ export const DeleteTableSchema = z.object({
 });
 
 export type DeleteTableParams = z.infer<typeof DeleteTableSchema>;
+
+// Azure Blob Storage schemas
+const azureContainerNameRegex = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/;
+const azureBlobNameRegex = /^[^\\/]+$/;
+
+// Schema pour les paramètres de connexion Azure Blob
+export const AzureBlobConfigSchema = z.object({
+  accountName: z.string().optional(),
+  connectionString: z.string().optional(),
+}).refine(data => data.accountName || data.connectionString, {
+  message: "Either accountName or connectionString must be provided"
+});
+
+export type AzureBlobConfig = z.infer<typeof AzureBlobConfigSchema>;
+
+// Schema pour créer un container
+export const CreateContainerSchema = z.object({
+  containerName: z.string()
+    .min(3, "Le nom du container doit contenir au moins 3 caractères")
+    .max(63, "Le nom du container ne peut pas dépasser 63 caractères")
+    .regex(azureContainerNameRegex, "Le nom du container doit contenir seulement des lettres minuscules, chiffres et tirets")
+    .describe("Nom du container à créer"),
+  publicAccess: z.enum(["container", "blob"]).optional().describe("Niveau d'accès public (container ou blob)"),
+});
+
+export type CreateContainerParams = z.infer<typeof CreateContainerSchema>;
+
+// Schema pour supprimer un container
+export const DeleteContainerSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container à supprimer"),
+});
+
+export type DeleteContainerParams = z.infer<typeof DeleteContainerSchema>;
+
+// Schema pour lister les blobs
+export const ListBlobsSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container"),
+  prefix: z.string().optional().describe("Préfixe pour filtrer les blobs"),
+});
+
+export type ListBlobsParams = z.infer<typeof ListBlobsSchema>;
+
+// Schema pour uploader un blob
+export const UploadBlobSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container"),
+  blobName: z.string()
+    .min(1, "Le nom du blob ne peut pas être vide")
+    .max(1024, "Le nom du blob ne peut pas dépasser 1024 caractères")
+    .describe("Nom du blob à uploader"),
+  content: z.string().describe("Contenu du blob (texte ou base64)"),
+  contentType: z.string().optional().describe("Type MIME du contenu"),
+  metadata: z.record(z.string()).optional().describe("Métadonnées du blob"),
+  overwrite: z.boolean().optional().default(false).describe("Remplacer le blob s'il existe déjà"),
+});
+
+export type UploadBlobParams = z.infer<typeof UploadBlobSchema>;
+
+// Schema pour télécharger un blob
+export const DownloadBlobSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container"),
+  blobName: z.string()
+    .min(1, "Le nom du blob ne peut pas être vide")
+    .describe("Nom du blob à télécharger"),
+});
+
+export type DownloadBlobParams = z.infer<typeof DownloadBlobSchema>;
+
+// Schema pour supprimer un blob
+export const DeleteBlobSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container"),
+  blobName: z.string()
+    .min(1, "Le nom du blob ne peut pas être vide")
+    .describe("Nom du blob à supprimer"),
+});
+
+export type DeleteBlobParams = z.infer<typeof DeleteBlobSchema>;
+
+// Schema pour obtenir les propriétés d'un blob
+export const GetBlobPropertiesSchema = z.object({
+  containerName: z.string()
+    .regex(azureContainerNameRegex, "Nom de container invalide")
+    .describe("Nom du container"),
+  blobName: z.string()
+    .min(1, "Le nom du blob ne peut pas être vide")
+    .describe("Nom du blob"),
+});
+
+export type GetBlobPropertiesParams = z.infer<typeof GetBlobPropertiesSchema>;
