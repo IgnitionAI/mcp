@@ -1,521 +1,270 @@
 import { z } from "zod";
 
-// Validation pour les noms de table Azure
-const azureTableNameRegex = /^[a-zA-Z][a-zA-Z0-9]{2,62}$/;
-const azureKeyRegex = /^[^/\\#?]*$/;
-
-// Schema pour les paramètres de connexion Azure
-export const AzureTableConfigSchema = z.object({
-  accountName: z.string(),
-  accountKey: z.string().optional(),
-  tableName: z.string(),
-  connectionString: z.string().optional(),
+// Azure AI Search Configuration
+export const AzureSearchConfigSchema = z.object({
+  endpoint: z.string().url().describe("Azure Search service endpoint"),
+  apiKey: z.string().optional().describe("Azure Search API key"),
+  apiVersion: z.string().optional().default("2023-11-01").describe("Azure Search API version"),
 });
 
-export type AzureTableConfig = z.infer<typeof AzureTableConfigSchema>;
+export type AzureSearchConfig = z.infer<typeof AzureSearchConfigSchema>;
 
-// Schema pour les filtres de requête
-export const TableQuerySchema = z.object({
-  filter: z.string().optional(),
-  select: z.array(z.string()).optional(),
-  maxResults: z.number().optional(),
+// Search Query Parameters
+export const SearchDocumentsSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  searchText: z.string().describe("Text to search for (use '*' for all documents)"),
+  searchMode: z.enum(["any", "all"]).optional().default("any").describe("Search mode: any (OR) or all (AND)"),
+  searchFields: z.array(z.string()).optional().describe("Fields to search in"),
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
+  filter: z.string().optional().describe("OData filter expression"),
+  orderBy: z.array(z.string()).optional().describe("Sort order (field asc/desc)"),
+  top: z.number().min(1).max(1000).optional().default(50).describe("Number of results to return (1-1000)"),
+  skip: z.number().min(0).optional().describe("Number of results to skip"),
+  includeTotalCount: z.boolean().optional().default(false).describe("Include total count in response"),
+  facets: z.array(z.string()).optional().describe("Facet fields"),
+  highlightFields: z.array(z.string()).optional().describe("Fields to highlight"),
+  highlightPreTag: z.string().optional().default("<em>").describe("Pre-tag for highlighting"),
+  highlightPostTag: z.string().optional().default("</em>").describe("Post-tag for highlighting"),
+  minimumCoverage: z.number().min(0).max(100).optional().describe("Minimum coverage percentage"),
+  queryType: z.enum(["simple", "full"]).optional().default("simple").describe("Query type: simple or full (Lucene)"),
 });
 
-export type TableQuery = z.infer<typeof TableQuerySchema>;
+export type SearchDocumentsParams = z.infer<typeof SearchDocumentsSchema>;
 
-// Schema pour les entités de table Azure
-export const TableEntitySchema = z.record(z.any());
-
-export type TableEntity = z.infer<typeof TableEntitySchema>;
-
-// Schema pour les paramètres d'outil MCP
-export const ReadTableToolSchema = z.object({
-  tableName: z.string().describe("Nom de la table Azure à lire"),
-  filter: z.string().optional().describe("Filtre OData pour les entités (ex: 'PartitionKey eq \"partition1\"')"),
-  select: z.array(z.string()).optional().describe("Colonnes à sélectionner"),
-  maxResults: z.number().optional().describe("Nombre maximum d'entités à retourner"),
+// Get Document Parameters
+export const GetDocumentSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  key: z.string().describe("Document key"),
+  select: z.array(z.string()).optional().describe("Fields to include in result"),
 });
 
-// Schema pour les requêtes avancées avec pagination
-export const QueryTableAdvancedSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure à interroger"),
-  filter: z.string().optional().describe("Filtre OData complexe (ex: 'Age gt 18 and Status eq \"active\"')"),
-  select: z.array(z.string()).optional().describe("Colonnes à sélectionner"),
-  orderBy: z.array(z.string()).optional().describe("Tri par colonnes (ex: ['Age desc', 'Name asc'])"),
-  top: z.number().min(1).max(1000).optional().describe("Nombre d'entités à retourner (1-1000)"),
-  skip: z.number().min(0).optional().describe("Nombre d'entités à ignorer"),
-  continuationToken: z.string().optional().describe("Token de continuation pour la pagination"),
+export type GetDocumentParams = z.infer<typeof GetDocumentSchema>;
+
+// Suggest Parameters
+export const SuggestSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  searchText: z.string().describe("Text to get suggestions for"),
+  suggesterName: z.string().describe("Name of the suggester to use"),
+  fuzzy: z.boolean().optional().default(false).describe("Enable fuzzy matching"),
+  highlightPreTag: z.string().optional().default("<em>").describe("Pre-tag for highlighting"),
+  highlightPostTag: z.string().optional().default("</em>").describe("Post-tag for highlighting"),
+  minimumCoverage: z.number().min(0).max(100).optional().describe("Minimum coverage percentage"),
+  orderBy: z.array(z.string()).optional().describe("Sort order"),
+  searchFields: z.array(z.string()).optional().describe("Fields to search in"),
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
+  top: z.number().min(1).max(100).optional().default(5).describe("Number of suggestions to return"),
+  filter: z.string().optional().describe("OData filter expression"),
 });
 
-export type QueryTableAdvancedParams = z.infer<typeof QueryTableAdvancedSchema>;
+export type SuggestParams = z.infer<typeof SuggestSchema>;
 
-export type ReadTableToolParams = z.infer<typeof ReadTableToolSchema>;
-
-// Schema pour les valeurs autorisées dans Azure Table
-const AzureTableValueSchema = z.union([
-  z.string().max(64000), // String max 64KB
-  z.number().int().min(-2147483648).max(2147483647), // Int32
-  z.number().min(-1.79E+308).max(1.79E+308), // Double
-  z.boolean(),
-  z.date(),
-  z.instanceof(Uint8Array).refine(data => data.length <= 64000, "Binary data must be <= 64KB"),
-  z.null()
-]);
-
-// Schema pour créer une entité
-export const CreateEntityToolSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  partitionKey: z.string()
-    .min(1, "PartitionKey ne peut pas être vide")
-    .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de partition de l'entité"),
-  rowKey: z.string()
-    .min(1, "RowKey ne peut pas être vide")
-    .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de ligne de l'entité"),
-  entity: z.record(AzureTableValueSchema)
-    .refine(data => {
-      // Vérifier qu'il n'y a pas de propriétés réservées
-      const reservedProps = ['PartitionKey', 'RowKey', 'Timestamp', 'ETag'];
-      const hasReserved = Object.keys(data).some(key => reservedProps.includes(key));
-      return !hasReserved;
-    }, "L'entité ne peut pas contenir les propriétés réservées : PartitionKey, RowKey, Timestamp, ETag")
-    .refine(data => Object.keys(data).length <= 252, "Une entité ne peut pas avoir plus de 252 propriétés")
-    .describe("Données de l'entité à créer (max 252 propriétés, types autorisés : string, number, boolean, date, binary, null)"),
+// Autocomplete Parameters
+export const AutocompleteSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  searchText: z.string().describe("Text to autocomplete"),
+  suggesterName: z.string().describe("Name of the suggester to use"),
+  autocompleteMode: z.enum(["oneTerm", "twoTerms", "oneTermWithContext"]).optional().default("oneTerm").describe("Autocomplete mode"),
+  fuzzy: z.boolean().optional().default(false).describe("Enable fuzzy matching"),
+  highlightPreTag: z.string().optional().default("<em>").describe("Pre-tag for highlighting"),
+  highlightPostTag: z.string().optional().default("</em>").describe("Post-tag for highlighting"),
+  minimumCoverage: z.number().min(0).max(100).optional().describe("Minimum coverage percentage"),
+  searchFields: z.array(z.string()).optional().describe("Fields to search in"),
+  top: z.number().min(1).max(100).optional().default(5).describe("Number of autocomplete terms to return"),
+  filter: z.string().optional().describe("OData filter expression"),
 });
 
-export type CreateEntityToolParams = z.infer<typeof CreateEntityToolSchema>;
+export type AutocompleteParams = z.infer<typeof AutocompleteSchema>;
 
-// Schema pour mettre à jour une entité
-export const UpdateEntityToolSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  partitionKey: z.string()
-    .min(1, "PartitionKey ne peut pas être vide")
-    .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de partition de l'entité"),
-  rowKey: z.string()
-    .min(1, "RowKey ne peut pas être vide")
-    .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de ligne de l'entité"),
-  entity: z.record(AzureTableValueSchema)
-    .refine(data => {
-      // Vérifier qu'il n'y a pas de propriétés réservées
-      const reservedProps = ['PartitionKey', 'RowKey', 'Timestamp', 'ETag'];
-      const hasReserved = Object.keys(data).some(key => reservedProps.includes(key));
-      return !hasReserved;
-    }, "L'entité ne peut pas contenir les propriétés réservées : PartitionKey, RowKey, Timestamp, ETag")
-    .refine(data => Object.keys(data).length <= 252, "Une entité ne peut pas avoir plus de 252 propriétés")
-    .describe("Données de l'entité à mettre à jour (max 252 propriétés, types autorisés : string, number, boolean, date, binary, null)"),
-  mode: z.enum(["merge", "replace"]).optional().default("merge").describe("Mode de mise à jour : merge ou replace"),
+// Index Management
+export const ListIndexesSchema = z.object({
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
 });
 
-export type UpdateEntityToolParams = z.infer<typeof UpdateEntityToolSchema>;
+export type ListIndexesParams = z.infer<typeof ListIndexesSchema>;
 
-// Schema pour supprimer une entité
-export const DeleteEntityToolSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  partitionKey: z.string()
-    .min(1, "PartitionKey ne peut pas être vide")
-    .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de partition de l'entité"),
-  rowKey: z.string()
-    .min(1, "RowKey ne peut pas être vide")
-    .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-    .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?")
-    .describe("Clé de ligne de l'entité"),
+export const GetIndexSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the index"),
 });
 
-export type DeleteEntityToolParams = z.infer<typeof DeleteEntityToolSchema>;
+export type GetIndexParams = z.infer<typeof GetIndexSchema>;
 
-// Schema pour les opérations batch
-export const BatchCreateEntitiesSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  entities: z.array(z.object({
-    partitionKey: z.string()
-      .min(1, "PartitionKey ne peut pas être vide")
-      .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?"),
-    rowKey: z.string()
-      .min(1, "RowKey ne peut pas être vide")
-      .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?"),
-    entity: z.record(AzureTableValueSchema)
-      .refine(data => {
-        const reservedProps = ['PartitionKey', 'RowKey', 'Timestamp', 'ETag'];
-        const hasReserved = Object.keys(data).some(key => reservedProps.includes(key));
-        return !hasReserved;
-      }, "L'entité ne peut pas contenir les propriétés réservées")
-      .refine(data => Object.keys(data).length <= 252, "Une entité ne peut pas avoir plus de 252 propriétés")
-  }))
-  .min(1, "Au moins une entité est requise")
-  .max(100, "Maximum 100 entités par batch (limitation Azure)")
-  .describe("Liste des entités à créer"),
+export const GetIndexStatisticsSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the index"),
 });
 
-export type BatchCreateEntitiesParams = z.infer<typeof BatchCreateEntitiesSchema>;
+export type GetIndexStatisticsParams = z.infer<typeof GetIndexStatisticsSchema>;
 
-export const BatchUpdateEntitiesSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  entities: z.array(z.object({
-    partitionKey: z.string()
-      .min(1, "PartitionKey ne peut pas être vide")
-      .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?"),
-    rowKey: z.string()
-      .min(1, "RowKey ne peut pas être vide")
-      .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?"),
-    entity: z.record(AzureTableValueSchema)
-      .refine(data => {
-        const reservedProps = ['PartitionKey', 'RowKey', 'Timestamp', 'ETag'];
-        const hasReserved = Object.keys(data).some(key => reservedProps.includes(key));
-        return !hasReserved;
-      }, "L'entité ne peut pas contenir les propriétés réservées")
-      .refine(data => Object.keys(data).length <= 252, "Une entité ne peut pas avoir plus de 252 propriétés"),
-    mode: z.enum(["merge", "replace"]).optional().default("merge")
-  }))
-  .min(1, "Au moins une entité est requise")
-  .max(100, "Maximum 100 entités par batch (limitation Azure)")
-  .describe("Liste des entités à mettre à jour"),
+// Document Management
+export const UploadDocumentsSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  documents: z.array(z.record(z.any())).min(1).max(1000).describe("Documents to upload (max 1000)"),
 });
 
-export type BatchUpdateEntitiesParams = z.infer<typeof BatchUpdateEntitiesSchema>;
+export type UploadDocumentsParams = z.infer<typeof UploadDocumentsSchema>;
 
-export const BatchDeleteEntitiesSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure"),
-  entities: z.array(z.object({
-    partitionKey: z.string()
-      .min(1, "PartitionKey ne peut pas être vide")
-      .max(1024, "PartitionKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "PartitionKey ne peut pas contenir les caractères /, \\, #, ?"),
-    rowKey: z.string()
-      .min(1, "RowKey ne peut pas être vide")
-      .max(1024, "RowKey ne peut pas dépasser 1024 caractères")
-      .regex(azureKeyRegex, "RowKey ne peut pas contenir les caractères /, \\, #, ?")
-  }))
-  .min(1, "Au moins une entité est requise")
-  .max(100, "Maximum 100 entités par batch (limitation Azure)")
-  .describe("Liste des entités à supprimer"),
+export const MergeDocumentsSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  documents: z.array(z.record(z.any())).min(1).max(1000).describe("Documents to merge (max 1000)"),
 });
 
-export type BatchDeleteEntitiesParams = z.infer<typeof BatchDeleteEntitiesSchema>;
+export type MergeDocumentsParams = z.infer<typeof MergeDocumentsSchema>;
 
-// Schema pour la gestion des tables
-export const CreateTableSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure à créer"),
+export const DeleteDocumentsSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  keyField: z.string().describe("Name of the key field"),
+  keyValues: z.array(z.string()).min(1).max(1000).describe("Key values of documents to delete (max 1000)"),
 });
 
-export type CreateTableParams = z.infer<typeof CreateTableSchema>;
+export type DeleteDocumentsParams = z.infer<typeof DeleteDocumentsSchema>;
 
-export const DeleteTableSchema = z.object({
-  tableName: z.string()
-    .regex(azureTableNameRegex, "Le nom de table doit commencer par une lettre et contenir seulement des lettres/chiffres (3-63 caractères)")
-    .describe("Nom de la table Azure à supprimer"),
+// Response Types
+export interface SearchResult<T = any> {
+  success: boolean;
+  data?: {
+    results: T[];
+    count?: number;
+    facets?: Record<string, any[]>;
+    coverage?: number;
+    nextPageParameters?: any;
+  };
+  error?: string;
+}
+
+export interface DocumentResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+export interface SuggestResult {
+  success: boolean;
+  data?: {
+    results: Array<{
+      text: string;
+      document: any;
+    }>;
+    coverage?: number;
+  };
+  error?: string;
+}
+
+export interface AutocompleteResult {
+  success: boolean;
+  data?: {
+    results: Array<{
+      text: string;
+      queryPlusText: string;
+    }>;
+    coverage?: number;
+  };
+  error?: string;
+}
+
+export interface IndexResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export interface BatchResult {
+  success: boolean;
+  data?: {
+    results: Array<{
+      key: string;
+      status: boolean;
+      errorMessage?: string;
+    }>;
+  };
+  error?: string;
+}
+
+// Phase 4: Vector Search Schemas
+export const VectorQuerySchema = z.object({
+  vector: z.array(z.number()).describe("Vector values for similarity search"),
+  fields: z.string().describe("Vector field name to search"),
+  k: z.number().min(1).max(1000).optional().default(50).describe("Number of nearest neighbors to return"),
+  exhaustive: z.boolean().optional().default(false).describe("Use exhaustive search for higher accuracy"),
 });
 
-export type DeleteTableParams = z.infer<typeof DeleteTableSchema>;
+export type VectorQuery = z.infer<typeof VectorQuerySchema>;
 
-// Azure Blob Storage schemas
-const azureContainerNameRegex = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/;
-const azureBlobNameRegex = /^[^\\/]+$/;
-
-// Schema pour les paramètres de connexion Azure Blob
-export const AzureBlobConfigSchema = z.object({
-  accountName: z.string().optional(),
-  connectionString: z.string().optional(),
-}).refine(data => data.accountName || data.connectionString, {
-  message: "Either accountName or connectionString must be provided"
+export const VectorSearchSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  vectorQueries: z.array(VectorQuerySchema).min(1).describe("Vector queries to execute"),
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
+  filter: z.string().optional().describe("OData filter expression"),
+  top: z.number().min(1).max(1000).optional().default(50).describe("Number of results to return"),
+  skip: z.number().min(0).optional().describe("Number of results to skip"),
 });
 
-export type AzureBlobConfig = z.infer<typeof AzureBlobConfigSchema>;
+export type VectorSearchParams = z.infer<typeof VectorSearchSchema>;
 
-// Schema pour créer un container
-export const CreateContainerSchema = z.object({
-  containerName: z.string()
-    .min(3, "Le nom du container doit contenir au moins 3 caractères")
-    .max(63, "Le nom du container ne peut pas dépasser 63 caractères")
-    .regex(azureContainerNameRegex, "Le nom du container doit contenir seulement des lettres minuscules, chiffres et tirets")
-    .describe("Nom du container à créer"),
-  publicAccess: z.enum(["container", "blob"]).optional().describe("Niveau d'accès public (container ou blob)"),
+export const HybridSearchSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  searchText: z.string().describe("Text query for hybrid search"),
+  vectorQueries: z.array(VectorQuerySchema).min(1).describe("Vector queries for hybrid search"),
+  searchMode: z.enum(["any", "all"]).optional().default("any").describe("Text search mode"),
+  searchFields: z.array(z.string()).optional().describe("Text fields to search in"),
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
+  filter: z.string().optional().describe("OData filter expression"),
+  orderBy: z.array(z.string()).optional().describe("Sort order"),
+  top: z.number().min(1).max(1000).optional().default(50).describe("Number of results to return"),
+  skip: z.number().min(0).optional().describe("Number of results to skip"),
+  queryType: z.enum(["simple", "full"]).optional().default("simple").describe("Text query type"),
 });
 
-export type CreateContainerParams = z.infer<typeof CreateContainerSchema>;
+export type HybridSearchParams = z.infer<typeof HybridSearchSchema>;
 
-// Schema pour supprimer un container
-export const DeleteContainerSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container à supprimer"),
+// Phase 4: Semantic Search Schemas
+export const SemanticSearchSchema = z.object({
+  indexName: z.string().min(1).describe("Name of the search index"),
+  searchText: z.string().describe("Text to search semantically"),
+  semanticConfiguration: z.string().describe("Name of the semantic configuration to use"),
+  searchFields: z.array(z.string()).optional().describe("Fields to search in"),
+  select: z.array(z.string()).optional().describe("Fields to include in results"),
+  filter: z.string().optional().describe("OData filter expression"),
+  orderBy: z.array(z.string()).optional().describe("Sort order"),
+  top: z.number().min(1).max(1000).optional().default(50).describe("Number of results to return"),
+  skip: z.number().min(0).optional().describe("Number of results to skip"),
+  answers: z.object({
+    answerType: z.enum(["extractive"]).default("extractive"),
+    count: z.number().min(1).max(10).optional().default(3).describe("Number of answers to generate"),
+    threshold: z.number().min(0).max(1).optional().default(0.7).describe("Confidence threshold for answers"),
+  }).optional().describe("Semantic answers configuration"),
+  captions: z.object({
+    captionType: z.enum(["extractive"]).default("extractive"),
+    maxTextRecordsToProcess: z.number().min(1).max(1000).optional().default(1000),
+    highlight: z.boolean().optional().default(true).describe("Enable highlighting in captions"),
+  }).optional().describe("Semantic captions configuration"),
 });
 
-export type DeleteContainerParams = z.infer<typeof DeleteContainerSchema>;
+export type SemanticSearchParams = z.infer<typeof SemanticSearchSchema>;
 
-// Schema pour lister les blobs
-export const ListBlobsSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container"),
-  prefix: z.string().optional().describe("Préfixe pour filtrer les blobs"),
-});
+// Phase 4: Response Types for Vector and Semantic Search
+export interface VectorSearchResult<T = any> {
+  success: boolean;
+  data?: {
+    results: T[];
+    count?: number;
+  };
+  error?: string;
+}
 
-export type ListBlobsParams = z.infer<typeof ListBlobsSchema>;
-
-// Schema pour uploader un blob
-export const UploadBlobSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container"),
-  blobName: z.string()
-    .min(1, "Le nom du blob ne peut pas être vide")
-    .max(1024, "Le nom du blob ne peut pas dépasser 1024 caractères")
-    .describe("Nom du blob à uploader"),
-  content: z.string().describe("Contenu du blob (texte ou base64)"),
-  contentType: z.string().optional().describe("Type MIME du contenu"),
-  metadata: z.record(z.string()).optional().describe("Métadonnées du blob"),
-  overwrite: z.boolean().optional().default(false).describe("Remplacer le blob s'il existe déjà"),
-});
-
-export type UploadBlobParams = z.infer<typeof UploadBlobSchema>;
-
-// Schema pour télécharger un blob
-export const DownloadBlobSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container"),
-  blobName: z.string()
-    .min(1, "Le nom du blob ne peut pas être vide")
-    .describe("Nom du blob à télécharger"),
-});
-
-export type DownloadBlobParams = z.infer<typeof DownloadBlobSchema>;
-
-// Schema pour supprimer un blob
-export const DeleteBlobSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container"),
-  blobName: z.string()
-    .min(1, "Le nom du blob ne peut pas être vide")
-    .describe("Nom du blob à supprimer"),
-});
-
-export type DeleteBlobParams = z.infer<typeof DeleteBlobSchema>;
-
-// Schema pour obtenir les propriétés d'un blob
-export const GetBlobPropertiesSchema = z.object({
-  containerName: z.string()
-    .regex(azureContainerNameRegex, "Nom de container invalide")
-    .describe("Nom du container"),
-  blobName: z.string()
-    .min(1, "Le nom du blob ne peut pas être vide")
-    .describe("Nom du blob"),
-});
-
-export type GetBlobPropertiesParams = z.infer<typeof GetBlobPropertiesSchema>;
-
-// Azure Service Bus Queue schemas
-const azureQueueNameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-._]){0,258}[a-zA-Z0-9]$/;
-
-// Schema pour les paramètres de connexion Azure Service Bus
-export const AzureQueueConfigSchema = z.object({
-  namespaceName: z.string().optional(),
-  connectionString: z.string().optional(),
-}).refine(data => data.namespaceName || data.connectionString, {
-  message: "Either namespaceName or connectionString must be provided"
-});
-
-export type AzureQueueConfig = z.infer<typeof AzureQueueConfigSchema>;
-
-// Schema pour créer une queue
-export const CreateQueueSchema = z.object({
-  queueName: z.string()
-    .min(1, "Le nom de la queue ne peut pas être vide")
-    .max(260, "Le nom de la queue ne peut pas dépasser 260 caractères")
-    .regex(azureQueueNameRegex, "Le nom de la queue doit commencer et finir par une lettre/chiffre, peut contenir lettres, chiffres, tirets, points et underscores")
-    .describe("Nom de la queue à créer"),
-  maxSizeInMegabytes: z.number().min(1).max(5120).optional().describe("Taille max en MB (1-5120)"),
-  defaultMessageTimeToLive: z.string().optional().describe("TTL par défaut des messages (format ISO 8601, ex: P14D pour 14 jours)"),
-  lockDuration: z.string().optional().describe("Durée de verrouillage des messages (format ISO 8601, ex: PT30S pour 30 secondes)"),
-  requiresDuplicateDetection: z.boolean().optional().describe("Activer la détection de doublons"),
-  requiresSession: z.boolean().optional().describe("Requiert des sessions"),
-  deadLetteringOnMessageExpiration: z.boolean().optional().describe("Activer dead letter sur expiration"),
-});
-
-export type CreateQueueParams = z.infer<typeof CreateQueueSchema>;
-
-// Schema pour supprimer une queue
-export const DeleteQueueSchema = z.object({
-  queueName: z.string()
-    .regex(azureQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue à supprimer"),
-});
-
-export type DeleteQueueParams = z.infer<typeof DeleteQueueSchema>;
-
-// Schema pour envoyer un message
-export const SendMessageSchema = z.object({
-  queueName: z.string()
-    .regex(azureQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  messageBody: z.string()
-    .min(1, "Le corps du message ne peut pas être vide")
-    .describe("Corps du message à envoyer"),
-  messageId: z.string().optional().describe("ID unique du message"),
-  correlationId: z.string().optional().describe("ID de corrélation"),
-  label: z.string().optional().describe("Label/sujet du message"),
-  timeToLive: z.number().optional().describe("TTL du message en millisecondes"),
-  sessionId: z.string().optional().describe("ID de session (si sessions activées)"),
-  userProperties: z.record(z.any()).optional().describe("Propriétés personnalisées du message"),
-});
-
-export type SendMessageParams = z.infer<typeof SendMessageSchema>;
-
-// Schema pour recevoir des messages
-export const ReceiveMessageSchema = z.object({
-  queueName: z.string()
-    .regex(azureQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages à recevoir (1-100)"),
-  maxWaitTimeInMs: z.number().min(1).max(300000).optional().describe("Temps d'attente max en ms (1-300000)"),
-});
-
-export type ReceiveMessageParams = z.infer<typeof ReceiveMessageSchema>;
-
-// Schema pour aperçu des messages
-export const PeekMessageSchema = z.object({
-  queueName: z.string()
-    .regex(azureQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  maxMessageCount: z.number().min(1).max(100).optional().describe("Nombre max de messages à apercevoir (1-100)"),
-});
-
-export type PeekMessageParams = z.infer<typeof PeekMessageSchema>;
-
-// Schema pour obtenir les propriétés d'une queue
-export const GetQueuePropertiesSchema = z.object({
-  queueName: z.string()
-    .regex(azureQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-});
-
-export type GetQueuePropertiesParams = z.infer<typeof GetQueuePropertiesSchema>;
-
-// Azure Storage Queue schemas (différent des Service Bus Queues)
-const azureStorageQueueNameRegex = /^[a-z0-9]([a-z0-9-]){1,61}[a-z0-9]$/;
-
-// Schema pour les paramètres de connexion Azure Storage Queue
-export const AzureStorageQueueConfigSchema = z.object({
-  accountName: z.string().optional(),
-  connectionString: z.string().optional(),
-}).refine(data => data.accountName || data.connectionString, {
-  message: "Either accountName or connectionString must be provided"
-});
-
-export type AzureStorageQueueConfig = z.infer<typeof AzureStorageQueueConfigSchema>;
-
-// Schema pour créer une queue storage
-export const CreateStorageQueueSchema = z.object({
-  queueName: z.string()
-    .min(3, "Le nom de la queue doit contenir au moins 3 caractères")
-    .max(63, "Le nom de la queue ne peut pas dépasser 63 caractères")
-    .regex(azureStorageQueueNameRegex, "Le nom de la queue doit contenir seulement des lettres minuscules, chiffres et tirets")
-    .describe("Nom de la queue à créer"),
-  metadata: z.record(z.string()).optional().describe("Métadonnées de la queue"),
-});
-
-export type CreateStorageQueueParams = z.infer<typeof CreateStorageQueueSchema>;
-
-// Schema pour supprimer une queue storage
-export const DeleteStorageQueueSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue à supprimer"),
-});
-
-export type DeleteStorageQueueParams = z.infer<typeof DeleteStorageQueueSchema>;
-
-// Schema pour envoyer un message storage
-export const SendStorageMessageSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  messageText: z.string()
-    .min(1, "Le texte du message ne peut pas être vide")
-    .max(65536, "Le message ne peut pas dépasser 64KB")
-    .describe("Texte du message à envoyer"),
-  visibilityTimeoutInSeconds: z.number().min(1).max(604800).optional().describe("Délai de visibilité en secondes (1-604800)"),
-  messageTimeToLiveInSeconds: z.number().min(1).max(604800).optional().describe("TTL du message en secondes (1-604800)"),
-});
-
-export type SendStorageMessageParams = z.infer<typeof SendStorageMessageSchema>;
-
-// Schema pour recevoir des messages storage
-export const ReceiveStorageMessagesSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à recevoir (1-32)"),
-  visibilityTimeoutInSeconds: z.number().min(1).max(43200).optional().describe("Délai de visibilité en secondes (1-43200)"),
-});
-
-export type ReceiveStorageMessagesParams = z.infer<typeof ReceiveStorageMessagesSchema>;
-
-// Schema pour aperçu des messages storage
-export const PeekStorageMessagesSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  numberOfMessages: z.number().min(1).max(32).optional().describe("Nombre de messages à apercevoir (1-32)"),
-});
-
-export type PeekStorageMessagesParams = z.infer<typeof PeekStorageMessagesSchema>;
-
-// Schema pour supprimer un message storage
-export const DeleteStorageMessageSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-  messageId: z.string().describe("ID du message à supprimer"),
-  popReceipt: z.string().describe("Pop receipt du message"),
-});
-
-export type DeleteStorageMessageParams = z.infer<typeof DeleteStorageMessageSchema>;
-
-// Schema pour obtenir les propriétés d'une queue storage
-export const GetStorageQueuePropertiesSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue"),
-});
-
-export type GetStorageQueuePropertiesParams = z.infer<typeof GetStorageQueuePropertiesSchema>;
-
-// Schema pour vider une queue storage
-export const ClearStorageQueueSchema = z.object({
-  queueName: z.string()
-    .regex(azureStorageQueueNameRegex, "Nom de queue invalide")
-    .describe("Nom de la queue à vider"),
-});
-
-export type ClearStorageQueueParams = z.infer<typeof ClearStorageQueueSchema>;
+export interface SemanticSearchResult<T = any> {
+  success: boolean;
+  data?: {
+    results: T[];
+    count?: number;
+    answers?: Array<{
+      key: string;
+      text: string;
+      highlights: string;
+      score: number;
+    }>;
+    captions?: Array<{
+      text: string;
+      highlights: string;
+    }>;
+  };
+  error?: string;
+}

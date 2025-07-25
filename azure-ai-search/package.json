@@ -52,6 +52,7 @@
     ],
     "dependencies": {
         "@azure/identity": "^4.10.2",
+        "@azure/search-documents": "^12.1.0",
         "@modelcontextprotocol/sdk": "^1.12.1",
         "dotenv": "^16.5.0",
         "zod": "^3.25.42"

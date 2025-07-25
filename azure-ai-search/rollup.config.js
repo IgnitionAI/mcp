@@ -7,8 +7,9 @@ import shebang from 'rollup-plugin-preserve-shebang';
 export default {
   input: 'server.ts',
   output: {
-    file: 'dist/server.js',
-    format: 'esm'
+    dir: 'dist',
+    format: 'esm',
+    entryFileNames: 'server.js'
   },
   plugins: [
     shebang(),          // <- pour le #!/usr/bin/env node
@@ -19,6 +20,8 @@ export default {
   ],
   external: [
     "@modelcontextprotocol/sdk",
+    "@azure/search-documents",
+    "@azure/identity",
     "zod",
     "dotenv",
   ]
