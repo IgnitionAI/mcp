@@ -1,0 +1,72 @@
+{
+    "name": "@ignitionai/azure-ai-search-mcp",
+    "version": "1.0.0",
+    "description": "Complete Azure AI Search MCP server",
+    "type": "module",
+    "bin": {
+        "azure-ai-search-mcp": "dist/server.js"
+    },
+    "main": "dist/server.js",
+    "scripts": {
+        "build": "rollup -c",
+        "start": "node --loader ts-node/esm server.ts",
+        "start:prod": "node dist/server.js",
+        "inspect": "npx @modelcontextprotocol/inspector node dist/server.js",
+        "prepublishOnly": "pnpm build",
+        "test": "echo \"No tests yet\" && exit 0"
+    },
+    "keywords": [
+        "azure",
+        "ai",
+        "search",
+        "rag",
+        "mcp",
+        "model-context-protocol",
+        "claude",
+        "ai",
+        "database",
+        "nosql",
+        "crud",
+        "batch-operations",
+        "schema-validation",
+        "typescript"
+    ],
+    "author": "Salim Laimeche <salim@ignitionai.dev>",
+    "license": "MIT",
+    "homepage": "https://github.com/IgnitionAI/azure-ai-search-mcp#readme",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/IgnitionAI/azure-ai-search-mcp.git"
+    },
+    "bugs": {
+        "url": "https://github.com/IgnitionAI/azure-ai-search-mcp/issues"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "CLAUDE.md",
+        "LICENSE"
+    ],
+    "dependencies": {
+        "@azure/identity": "^4.10.2",
+        "@azure/search-documents": "^12.1.0",
+        "@modelcontextprotocol/sdk": "^1.12.1",
+        "dotenv": "^16.5.0",
+        "zod": "^3.25.42"
+    },
+    "devDependencies": {
+        "@rollup/plugin-commonjs": "^28.0.3",
+        "@rollup/plugin-json": "^6.1.0",
+        "@rollup/plugin-node-resolve": "^16.0.1",
+        "@rollup/plugin-typescript": "^12.1.2",
+        "rollup": "^4.42.0",
+        "rollup-plugin-preserve-shebang": "^1.0.1",
+        "ts-node": "^10.9.1",
+        "tslib": "^2.8.1",
+        "typescript": "^5.0.0"
+    },
+    "packageManager": "pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912"
+}
