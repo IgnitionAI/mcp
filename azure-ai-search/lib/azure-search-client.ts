@@ -21,6 +21,77 @@ export class AzureSearchTools {
   private searchClients: Map<string, SearchClient<any>> = new Map();
   private config: AzureSearchConfig;
 
+  /**
+   * Removes vector fields from search results to avoid returning large vector arrays
+   * @param results Array of search results
+   * @returns Filtered results without vector fields
+   */
+  private removeVectorFields(results: any[]): any[] {
+    return results.map(result => {
+      if (!result || typeof result !== 'object') return result;
+      
+      const filteredResult = { ...result };
+      
+      // Recursively filter nested objects (like document property)
+      this.filterVectorFieldsRecursive(filteredResult);
+      
+      return filteredResult;
+    });
+  }
+
+  /**
+   * Recursively removes vector fields from an object
+   * @param obj Object to filter
+   */
+  private filterVectorFieldsRecursive(obj: any): void {
+    if (!obj || typeof obj !== 'object') return;
+    
+    Object.keys(obj).forEach(key => {
+      const value = obj[key];
+      
+      // Check if this field should be removed
+      if (this.isVectorField(key, value)) {
+        delete obj[key];
+        return;
+      }
+      
+      // Recursively filter nested objects
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        this.filterVectorFieldsRecursive(value);
+      }
+    });
+  }
+
+  /**
+   * Determines if a field is a vector field that should be removed
+   * @param key Field name
+   * @param value Field value
+   * @returns True if field should be removed
+   */
+  private isVectorField(key: string, value: any): boolean {
+    const keyLower = key.toLowerCase();
+    
+    // Check field name patterns
+    if (keyLower.includes('vector') || 
+        keyLower.includes('embedding') ||
+        key.endsWith('Vector') || 
+        key.endsWith('_vector') ||
+        key.endsWith('Embedding') ||
+        key.endsWith('_embedding')) {
+      return true;
+    }
+    
+    // Check if it's a large numeric array (likely a vector)
+    if (Array.isArray(value) && 
+        value.length > 50 && // Lower threshold for safety
+        value.length < 10000 && // Reasonable upper bound for vectors
+        value.every((item: any) => typeof item === 'number')) {
+      return true;
+    }
+    
+    return false;
+  }
+
   constructor(config?: Partial<AzureSearchConfig>) {
     this.config = {
       endpoint: config?.endpoint || process.env.AZURE_SEARCH_ENDPOINT || "",
@@ -102,10 +173,13 @@ export class AzureSearchTools {
         results.push(result);
       }
 
+      // Remove vector fields from results
+      const filteredResults = this.removeVectorFields(results);
+
       return {
         success: true,
         data: {
-          results,
+          results: filteredResults,
           count: response.count,
           facets: response.facets,
           coverage: response.coverage,
@@ -132,9 +206,12 @@ export class AzureSearchTools {
         selectedFields: params.select,
       });
 
+      // Remove vector fields from result
+      const filteredResult = this.removeVectorFields([result])[0];
+
       return {
         success: true,
-        data: result,
+        data: filteredResult,
       };
     } catch (error) {
       return {
@@ -502,10 +579,13 @@ export class AzureSearchTools {
         results.push(result);
       }
 
+      // Remove vector fields from results
+      const filteredResults = this.removeVectorFields(results);
+
       return {
         success: true,
         data: {
-          results,
+          results: filteredResults,
           count: response.count,
         },
       };
@@ -557,10 +637,13 @@ export class AzureSearchTools {
         results.push(result);
       }
 
+      // Remove vector fields from results
+      const filteredResults = this.removeVectorFields(results);
+
       return {
         success: true,
         data: {
-          results,
+          results: filteredResults,
           count: response.count,
           facets: response.facets,
           coverage: response.coverage,
@@ -635,10 +718,13 @@ export class AzureSearchTools {
         results.push(result);
       }
 
+      // Remove vector fields from results
+      const filteredResults = this.removeVectorFields(results);
+
       return {
         success: true,
         data: {
-          results,
+          results: filteredResults,
           count: response.count,
           answers: (response as any).answers?.map((answer: any) => ({
             key: answer.key || "",
