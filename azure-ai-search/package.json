@@ -1,7 +1,7 @@
 {
     "name": "@ignitionai/azure-ai-search-mcp",
-    "version": "1.0.0",
-    "description": "Complete Azure AI Search MCP server",
+    "version": "1.0.1",
+    "description": "Complete Azure AI Search MCP server with vector search, semantic search, and document management",
     "type": "module",
     "bin": {
         "azure-ai-search-mcp": "dist/server.js"
@@ -17,18 +17,18 @@
     },
     "keywords": [
         "azure",
-        "ai",
+        "azure-ai-search",
         "search",
+        "vector-search", 
+        "semantic-search",
+        "hybrid-search",
         "rag",
         "mcp",
         "model-context-protocol",
         "claude",
         "ai",
-        "database",
-        "nosql",
-        "crud",
-        "batch-operations",
-        "schema-validation",
+        "embedding",
+        "document-management",
         "typescript"
     ],
     "author": "Salim Laimeche <salim@ignitionai.dev>",

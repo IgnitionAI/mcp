@@ -8,36 +8,77 @@ IgnitionAI is an open-source organization dedicated to advancing AI capabilities
 
 ## Repository Contents
 
+This is a monorepo containing multiple MCP server implementations:
+
+- **azure-storage-mcp**: Complete Azure Storage integration with Table Storage, Blob Storage, Service Bus Queues, and Storage Queues
+- **azure-ai-search**: Azure AI Search integration (in development)
+- **linkedin-mcp**: LinkedIn API integration with OAuth authentication
+- **linkedin-mcp-http**: HTTP variant of LinkedIn MCP server
 - **fit-mcp**: MCP implementation for fitness and nutrition calculations
-- **node-mcp**: Node.js extra simple MCP implementation
+- **node-mcp**: Simple Node.js MCP implementation
+- **mcp-template**: Base template for creating new MCP servers
+
+## Development
+
+### Prerequisites
+- Node.js and pnpm
+- Service-specific credentials (see individual server documentation)
+
+### Commands
+- `pnpm build` - Build all projects
+- `pnpm start` - Start development server
+- `pnpm start:prod` - Start production server
+- `pnpm inspect` - Run MCP inspector for debugging
+- `docker compose up -d` - Start LinkedIn HTTP server
 
 ## About MCP
 
 The Model Context Protocol (MCP) is a standard that enables AI models to interact with external tools, APIs, and services, extending their capabilities beyond their initial training. These repositories are available for everyone to use, modify, and contribute to.
 
-## Getting Started
+## Configuration Examples
 
-### Fit-mcp config :
+### Azure Storage MCP
 ```json
-    "fit-mcp": {
-      "command": "npx",
-      "args": [
-        "fitmcp"
-      ]
-    },
+"azure-storage": {
+  "command": "npx",
+  "args": ["azure-storage-mcp"],
+  "env": {
+    "AZURE_STORAGE_CONNECTION_STRING": "your-connection-string"
+  }
+}
 ```
 
-### Linkedin-mcp config : 
+### Azure AI Search MCP
 ```json
-    "linkedin": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "linkedin-mcp"
-      ],
-      "env": {
-      }
-    }
+"azure-ai-search": {
+  "command": "npx",
+  "args": ["azure-ai-search-mcp"],
+  "env": {
+    "AZURE_SEARCH_ENDPOINT": "your-search-endpoint",
+    "AZURE_SEARCH_API_KEY": "your-api-key"
+  }
+}
+```
+
+### LinkedIn MCP
+```json
+"linkedin": {
+  "command": "npx",
+  "args": ["-y", "linkedin-mcp"],
+  "env": {
+    "LINKEDIN_CLIENT_ID": "your-client-id",
+    "LINKEDIN_CLIENT_SECRET": "your-client-secret",
+    "LINKEDIN_REDIRECT_URI": "your-redirect-uri"
+  }
+}
+```
+
+### Fit MCP
+```json
+"fit-mcp": {
+  "command": "npx",
+  "args": ["fitmcp"]
+}
 ```
 
 ### How to Get LinkedIn API Keys
@@ -57,10 +98,21 @@ To obtain the necessary LinkedIn API credentials (`LINKEDIN_CLIENT_ID`, `LINKEDI
 
 Make sure to create the `env` file, based on the given `.env.example`.
 
-### Run the MCP HTTP Server
-```sh
-docker compose up -d
-```
+## Architecture
+
+Each MCP server follows a consistent pattern:
+- **server.ts** - Main entry point with tool/resource registration
+- **tools/** - Business logic implementations  
+- **resources/** - Data access providers
+- **prompts/** - Template definitions
+- **types.ts** - Zod schemas for validation
+- **lib/** - Shared utilities and API clients
+
+All servers use:
+- TypeScript with ESM modules
+- Rollup for bundling
+- pnpm as package manager
+- Individual npm publishing under `@ignitionai/` scope
 
 ## Contributing
 
