@@ -54,6 +54,7 @@ export class AzureTableTools {
       const tableClient = this.getTableClient(validatedParams.tableName);
       
       // Configuration de la requête
+      const options: any = {};
       const queryOptions: any = {};
       
       if (validatedParams.filter) {
@@ -64,9 +65,13 @@ export class AzureTableTools {
         queryOptions.select = validatedParams.select;
       }
 
+      if (Object.keys(queryOptions).length > 0) {
+        options.queryOptions = queryOptions;
+      }
+
       // Exécution de la requête
       const entities = [];
-      const entitiesIter = tableClient.listEntities(queryOptions);
+      const entitiesIter = tableClient.listEntities(options);
       
       let count = 0;
       const maxResults = validatedParams.maxResults || 100;
@@ -800,6 +805,7 @@ export class AzureTableTools {
       const tableClient = this.getTableClient(validatedParams.tableName);
       
       // Configuration de la requête avancée
+      const options: any = {};
       const queryOptions: any = {};
       
       if (validatedParams.filter) {
@@ -808,6 +814,10 @@ export class AzureTableTools {
       
       if (validatedParams.select) {
         queryOptions.select = validatedParams.select;
+      }
+
+      if (Object.keys(queryOptions).length > 0) {
+        options.queryOptions = queryOptions;
       }
 
       // Azure Table Storage ne supporte pas ORDER BY nativement
@@ -820,7 +830,7 @@ export class AzureTableTools {
 
       // Collecte des entités avec pagination
       do {
-        const pageOptions = { ...queryOptions };
+        const pageOptions = { ...options };
         if (continuationToken) {
           pageOptions.continuationToken = continuationToken;
         }
